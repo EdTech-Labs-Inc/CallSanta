@@ -45,6 +45,7 @@ interface BookingWizardProps {
     clientSecret: string;
     amount: number;
     currency: string;
+    checkoutUrl: string;
   }>;
   pricing: {
     basePrice: number;
