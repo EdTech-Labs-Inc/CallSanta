@@ -165,6 +165,11 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     setEditingSection(section);
   };
 
+  const handleManualPrepare = useCallback(async () => {
+    setFlowError(null);
+    await tryPreparePayment();
+  }, [tryPreparePayment, setFlowError]);
+
   const tryAutoCollapseContact = useCallback(async () => {
     if (collapsed.contact || editingSection === 'contact') return;
     const filled = Boolean(
@@ -505,6 +510,16 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
           ) : (
             <p className="text-sm text-gray-500">
               Payment buttons appear once the form is complete and validated.
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ml-2 inline-flex"
+                onClick={handleManualPrepare}
+                disabled={preparingPayment || isSubmitting}
+              >
+                Refresh payment options
+              </Button>
             </p>
           )}
         </div>
