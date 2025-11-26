@@ -48,6 +48,9 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
   const [showVoice, setShowVoice] = useState(false);
   const [preparingPayment, setPreparingPayment] = useState(false);
+  const [collapsed, setCollapsed] = useState({ contact: false, time: false });
+  const [editingSection, setEditingSection] = useState<'contact' | 'time' | null>(null);
+  const [lastCollapsedKey, setLastCollapsedKey] = useState<{ contact?: string; time?: string }>({});
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -66,7 +69,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue, watch, trigger } = form;
+  const { control, handleSubmit, formState: { errors }, setValue, watch, trigger, getValues } = form;
   const watchedValues = watch();
 
   const preparePayment = useCallback(async (values: BookingFormData) => {
@@ -144,120 +147,223 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     [pricing.basePrice, pricing.recordingPrice, watchedValues.purchaseRecording]
   );
 
+  const markSectionDone = useCallback(
+    async (section: 'contact' | 'time') => {
+      const fields = section === 'contact'
+        ? (['childName', 'childAge', 'phoneNumber', 'parentEmail'] as const)
+        : (['scheduledAt', 'timezone'] as const);
+      const valid = await trigger(fields);
+      if (!valid) return;
+      setCollapsed((prev) => ({ ...prev, [section]: true }));
+      const values = getValues();
+      const key = section === 'contact'
+        ? `${values.childName}|${values.childAge ?? ''}|${values.phoneNumber}|${values.parentEmail}`
+        : `${values.scheduledAt}|${values.timezone}`;
+      setLastCollapsedKey((prev) => ({ ...prev, [section]: key }));
+      setEditingSection(null);
+    },
+    [getValues, trigger]
+  );
+
+  const editSection = (section: 'contact' | 'time') => {
+    setCollapsed((prev) => ({ ...prev, [section]: false }));
+    setEditingSection(section);
+  };
+
+  const tryAutoCollapseContact = useCallback(async () => {
+    if (collapsed.contact || editingSection === 'contact') return;
+    const filled = Boolean(
+      watchedValues.childName &&
+      watchedValues.childAge &&
+      watchedValues.phoneNumber &&
+      watchedValues.parentEmail
+    );
+    if (!filled) return;
+    const key = `${watchedValues.childName}|${watchedValues.childAge ?? ''}|${watchedValues.phoneNumber}|${watchedValues.parentEmail}`;
+    if (lastCollapsedKey.contact === key) return;
+    const valid = await trigger(['childName', 'childAge', 'phoneNumber', 'parentEmail']);
+    if (valid) {
+      setCollapsed((prev) => ({ ...prev, contact: true }));
+      setLastCollapsedKey((prev) => ({ ...prev, contact: key }));
+    }
+  }, [collapsed.contact, editingSection, lastCollapsedKey.contact, trigger, watchedValues.childAge, watchedValues.childName, watchedValues.parentEmail, watchedValues.phoneNumber]);
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-2 px-0 sm:px-0">
-        <h2 className="text-2xl font-semibold text-gray-900">Schedule &amp; Pay</h2>
-        <p className="text-gray-600">
+    <div className="space-y-8">
+      <div className="space-y-3 px-0 sm:px-0">
+        <h2 className="text-3xl sm:text-4xl font-semibold text-gray-900">Schedule &amp; Pay</h2>
+        <p className="text-base sm:text-lg text-gray-600">
           Give Santa some details so he knows when and who to call.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:gap-6 lg:gap-8 lg:grid-cols-2 px-0 sm:px-0">
-        <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit(preparePayment)}>
-          <div className="space-y-6 rounded-xl border border-gray-200 p-4 sm:p-5 bg-white shadow-sm w-full">
-            <p className="text-sm font-semibold text-gray-900">Contact</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Controller
-                name="childName"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    {...field}
-                    label="Child's Name"
-                    placeholder="Enter first name"
-                    error={errors.childName?.message}
-                  />
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-2 px-0 sm:px-0 w-full">
+        <form className="space-y-5 sm:space-y-7" onSubmit={handleSubmit(preparePayment)}>
+          {/* Contact */}
+          <div className="space-y-4 sm:space-y-5 rounded-xl border border-gray-200 p-6 sm:p-8 bg-white shadow-sm w-full">
+              <div className="flex items-center justify-between">
+                <p className="text-base font-semibold text-gray-900">Contact</p>
+                {collapsed.contact && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => editSection('contact')}>
+                    Edit
+                  </Button>
                 )}
-              />
-
-              <Controller
-                name="childAge"
-                control={control}
-                render={({ field }) => (
-                  <div className="w-full">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Age
-                    </label>
-                    <select
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent border-gray-300 bg-white"
-                    >
-                      <option value="">Select age</option>
-                      {Array.from({ length: 18 }, (_, i) => i + 1).map((age) => (
-                        <option key={age} value={age}>{age} years old</option>
-                      ))}
-                    </select>
-                    {errors.childAge && (
-                      <p className="mt-1 text-sm text-red-500">{errors.childAge.message}</p>
-                    )}
-                  </div>
+                {editingSection === 'contact' && !collapsed.contact && (
+                  <Button type="button" variant="secondary" size="sm" onClick={() => markSectionDone('contact')}>
+                    Done
+                  </Button>
                 )}
-              />
-            </div>
+              </div>
 
-            <Controller
-              name="phoneNumber"
-              control={control}
-              render={({ field }) => (
-                <PhoneInput
-                  value={field.value}
-                  onChange={(value) => {
-                    field.onChange(value ?? '');
-                    if (value) {
-                      const parsed = parsePhoneNumber(value);
-                      if (parsed?.countryCallingCode) {
-                        setValue('phoneCountryCode', `+${parsed.countryCallingCode}`);
-                      }
-                    }
-                  }}
-                  label="Phone Number"
-                  error={errors.phoneNumber?.message}
-                />
-              )}
-            />
-
-            <Controller
-              name="parentEmail"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  type="email"
-                  label="Your Email"
-                  placeholder="you@example.com"
-                  error={errors.parentEmail?.message}
-                />
-              )}
-            />
-          </div>
-
-          <div className="space-y-4 rounded-xl border border-gray-200 p-4 sm:p-5 bg-white shadow-sm w-full">
-            <p className="text-sm font-semibold text-gray-900">Time</p>
-            <Controller
-              name="scheduledAt"
-              control={control}
-              render={({ field }) => (
-                <Controller
-                  name="timezone"
-                  control={control}
-                  render={({ field: tzField }) => (
-                    <DateTimePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      onTimezoneChange={tzField.onChange}
-                      label="When should Santa call?"
-                      error={errors.scheduledAt?.message}
+            {collapsed.contact ? (
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                <div className="text-sm text-gray-800">
+                  <p className="font-semibold">Contact completed</p>
+                  <p className="text-gray-600">
+                    {watchedValues.childName || '—'}
+                    {watchedValues.childAge ? `, ${watchedValues.childAge} yrs` : ''}
+                  </p>
+                  <p className="text-gray-600">{watchedValues.phoneNumber || 'Phone not set'}</p>
+                  <p className="text-gray-600">{watchedValues.parentEmail || 'Email not set'}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Controller
+                    name="childName"
+                    control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      label="Child's Name"
+                      placeholder="Enter first name"
+                      error={errors.childName?.message}
+                      onBlur={tryAutoCollapseContact}
                     />
                   )}
                 />
-              )}
-            />
+
+                  <Controller
+                    name="childAge"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="w-full">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Age
+                        </label>
+                        <select
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent border-gray-300 bg-white text-base"
+                          onBlur={tryAutoCollapseContact}
+                        >
+                          <option value="">Select age</option>
+                          {Array.from({ length: 18 }, (_, i) => i + 1).map((age) => (
+                            <option key={age} value={age}>{age} years old</option>
+                          ))}
+                        </select>
+                        {errors.childAge && (
+                          <p className="mt-1 text-sm text-red-500">{errors.childAge.message}</p>
+                        )}
+                      </div>
+                    )}
+                  />
+                </div>
+
+                <Controller
+                  name="phoneNumber"
+                  control={control}
+                  render={({ field }) => (
+                    <PhoneInput
+                      value={field.value}
+                      onChange={(value) => {
+                        field.onChange(value ?? '');
+                        if (value) {
+                          const parsed = parsePhoneNumber(value);
+                          if (parsed?.countryCallingCode) {
+                            setValue('phoneCountryCode', `+${parsed.countryCallingCode}`);
+                          }
+                        }
+                      }}
+                      label="Phone Number"
+                      error={errors.phoneNumber?.message}
+                      // fallback collapse attempt when phone loses focus
+                      // @ts-expect-error onBlur is supported by PhoneInputComponent passthrough
+                      onBlur={tryAutoCollapseContact}
+                    />
+                  )}
+                />
+
+                <Controller
+                  name="parentEmail"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="email"
+                      label="Your Email"
+                      placeholder="you@example.com"
+                      error={errors.parentEmail?.message}
+                      onBlur={tryAutoCollapseContact}
+                    />
+                  )}
+                />
+              </>
+            )}
           </div>
 
-          <div className="space-y-4 rounded-xl border border-gray-200 p-4 sm:p-5 bg-white shadow-sm w-full">
-            <p className="text-sm font-semibold text-gray-900">Notes</p>
+          <div className="space-y-4 sm:space-y-5 rounded-xl border border-gray-200 p-6 sm:p-8 bg-white shadow-sm w-full">
+              <div className="flex items-center justify-between">
+                <p className="text-base font-semibold text-gray-900">Time</p>
+                {collapsed.time && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => editSection('time')}>
+                    Edit
+                  </Button>
+                )}
+              </div>
+
+            {collapsed.time ? (
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                <div className="text-sm text-gray-800">
+                  <p className="font-semibold">Time selected</p>
+                  <p className="text-gray-600">
+                    {watchedValues.scheduledAt
+                      ? new Date(watchedValues.scheduledAt).toLocaleString()
+                      : 'Not scheduled'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <Controller
+                name="scheduledAt"
+                control={control}
+                render={({ field }) => (
+                  <Controller
+                    name="timezone"
+                    control={control}
+                    render={({ field: tzField }) => (
+                      <DateTimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        onTimezoneChange={tzField.onChange}
+                        label="When should Santa call?"
+                        error={errors.scheduledAt?.message}
+                        onConfirm={() => markSectionDone('time')}
+                        confirmLabel="Confirm"
+                      />
+                    )}
+                  />
+                )}
+              />
+            )}
+          </div>
+
+          <div className="space-y-4 sm:space-y-5 rounded-xl border border-gray-200 p-6 sm:p-8 bg-white shadow-sm w-full">
+            <div className="flex items-center justify-between">
+              <p className="text-base font-semibold text-gray-900">Notes</p>
+            </div>
+
             <Controller
               name="childInfoText"
               control={control}
@@ -276,7 +382,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
               )}
             />
 
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm text-gray-700">
                   Prefer voice? Add a quick note.
@@ -315,71 +421,71 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
           </p>
         </form>
 
-        <div className="space-y-4 border border-gray-200 rounded-lg p-4 sm:p-5 bg-white lg:bg-gray-50 w-full">
+        <div className="space-y-4 border border-gray-200 rounded-lg p-5 sm:p-6 bg-white lg:bg-gray-50 w-full">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Payment</h3>
-            <span className="text-2xl font-bold text-gray-900">{totalDisplay}</span>
+            <h3 className="text-xl font-semibold text-gray-900">Payment</h3>
+            <span className="text-3xl font-bold text-gray-900">{totalDisplay}</span>
           </div>
 
-            {bookingResult ? (
-              <div className="space-y-4">
-                {process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY && stripePromise ? (
-                  <Elements
-                    stripe={stripePromise}
-                    options={{
-                      clientSecret: bookingResult.clientSecret,
-                      appearance: { theme: 'flat', variables: { colorPrimaryText: '#111' } },
-                    }}
-                  >
-                    <div className="space-y-3">
-                      <ExpressCheckoutWrapper
-                        bookingResult={bookingResult}
-                        setFlowError={setFlowError}
-                        setIsSubmitting={setIsSubmitting}
-                        setExpressReady={setExpressReady}
-                      />
-                      {!expressReady && (
-                        <p className="text-xs text-gray-500">
-                          Apple Pay / Google Pay appears automatically if supported.
-                        </p>
-                      )}
-                    </div>
-                  </Elements>
-                ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
-                    Stripe keys missing; payment buttons unavailable.
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-gray-300" />
-                  <span className="text-xs uppercase tracking-wide text-gray-400">or</span>
-                  <div className="flex-1 h-px bg-gray-300" />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleCheckoutRedirect}
-                  disabled={isSubmitting}
-                  className="w-full bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300"
+          {bookingResult ? (
+            <div className="space-y-4">
+              {process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY && stripePromise ? (
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret: bookingResult.clientSecret,
+                    appearance: { theme: 'flat', variables: { colorPrimaryText: '#111' } },
+                  }}
                 >
-                  {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <CreditCard className="w-4 h-4 mr-2" />
-                  )}
-                  Pay with card
-                </Button>
+                  <div className="space-y-3">
+                    <ExpressCheckoutWrapper
+                      bookingResult={bookingResult}
+                      setFlowError={setFlowError}
+                      setIsSubmitting={setIsSubmitting}
+                      setExpressReady={setExpressReady}
+                    />
+                    {!expressReady && (
+                      <p className="text-xs text-gray-500">
+                        Apple Pay / Google Pay appears automatically if supported.
+                      </p>
+                    )}
+                  </div>
+                </Elements>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
+                  Stripe keys missing; payment buttons unavailable.
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-300" />
+                <span className="text-xs uppercase tracking-wide text-gray-400">or</span>
+                <div className="flex-1 h-px bg-gray-300" />
               </div>
-            ) : (
-              <p className="text-sm text-gray-500">
-                Payment buttons appear once the form is complete and validated.
-              </p>
-            )}
-          </div>
+
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCheckoutRedirect}
+                disabled={isSubmitting}
+                className="w-full bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CreditCard className="w-4 h-4 mr-2" />
+                )}
+                Pay with card
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Payment buttons appear once the form is complete and validated.
+            </p>
+          )}
         </div>
       </div>
+    </div>
   );
 }
 

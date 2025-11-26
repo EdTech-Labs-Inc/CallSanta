@@ -11,6 +11,7 @@ export interface PhoneInputProps {
   error?: string;
   defaultCountry?: Country;
   placeholder?: string;
+  onBlur?: () => void;
 }
 
 export function PhoneInput({
@@ -20,6 +21,7 @@ export function PhoneInput({
   error,
   defaultCountry = 'US',
   placeholder = 'Enter phone number',
+  onBlur,
 }: PhoneInputProps) {
   return (
     <div className="w-full">
@@ -35,13 +37,14 @@ export function PhoneInput({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        onBlur={onBlur}
         className={cn(
           "phone-input-wrapper",
           error && "phone-input-error"
         )}
       />
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-      <style jsx global>{`
+      <style>{`
         .phone-input-wrapper {
           display: flex;
           width: 100%;
@@ -61,11 +64,12 @@ export function PhoneInput({
           border-radius: 0 0.5rem 0.5rem 0;
           font-size: 1rem;
           transition: all 0.2s;
+          background: #ffffff;
         }
         .phone-input-wrapper .PhoneInputInput:focus {
           outline: none;
-          border-color: #165B33;
-          box-shadow: 0 0 0 2px rgba(22, 91, 51, 0.2);
+          border-color: #111111;
+          box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.12);
         }
         .phone-input-wrapper .PhoneInputInput::placeholder {
           color: #9ca3af;

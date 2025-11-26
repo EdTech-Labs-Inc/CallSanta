@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
-import DatePicker from 'react-datepicker';
-import { addDays, setHours, setMinutes, addMinutes } from 'date-fns';
-import { Calendar, Zap } from "lucide-react";
-import 'react-datepicker/dist/react-datepicker.css';
+import { addDays, addMinutes, isAfter, isBefore, setHours, setMinutes } from "date-fns";
+import { Zap, Clock3 } from "lucide-react";
+import { Button } from "@/components/ui";
 
 interface DateTimePickerProps {
   value: string; // ISO string
@@ -12,6 +11,8 @@ interface DateTimePickerProps {
   onTimezoneChange: (timezone: string) => void;
   label?: string;
   error?: string;
+  onConfirm?: () => void;
+  confirmLabel?: string;
 }
 
 export function DateTimePicker({
@@ -20,77 +21,142 @@ export function DateTimePicker({
   onTimezoneChange,
   label,
   error,
+  onConfirm,
+  confirmLabel,
 }: DateTimePickerProps) {
   const [callNow, setCallNow] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [desktopDate, setDesktopDate] = useState<string>('');
+  const [desktopTime, setDesktopTime] = useState<string>('');
 
   const parsedSelectedDate = useMemo(() => {
     if (!value) return null;
-    try {
-      const date = new Date(value);
-      return isNaN(date.getTime()) ? null : date;
-    } catch {
-      return null;
-    }
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
   }, [value]);
 
-  // Auto-detect timezone on mount
   useEffect(() => {
     const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     onTimezoneChange(detectedTimezone);
   }, [onTimezoneChange]);
+
+  useEffect(() => {
+    const updateIsMobile = () => setIsMobile(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
+  }, []);
+
+  const minDateTime = useMemo(() => addMinutes(new Date(), 15), []);
+  const maxDateTime = useMemo(() => addDays(new Date(), 30), []);
+
+  const toLocalInputValue = (date: Date) => {
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
 
   const handleCallNowToggle = () => {
     const newCallNow = !callNow;
     setCallNow(newCallNow);
 
     if (newCallNow) {
-      // Set to current time + 2 minutes
       const now = addMinutes(new Date(), 2);
       onChange(now.toISOString());
+      setLocalError(null);
+      setDesktopDate('');
+      setDesktopTime('');
     } else {
       onChange('');
     }
   };
 
-  const handleDateChange = (date: Date | null) => {
-    if (date) {
-      onChange(date.toISOString());
-    } else {
+  const validateAndSet = (candidate: Date) => {
+    if (isNaN(candidate.getTime())) {
+      setLocalError('Please pick a valid date and time.');
+      return;
+    }
+
+    const hour = candidate.getHours();
+    if (hour < 8 || hour > 21) {
+      setLocalError('Choose a time between 8:00 AM and 9:00 PM.');
+      return;
+    }
+
+    if (isBefore(candidate, minDateTime)) {
+      setLocalError('Pick a time at least 15 minutes from now.');
+      return;
+    }
+
+    if (isAfter(candidate, maxDateTime)) {
+      setLocalError('Pick a time within the next 30 days.');
+      return;
+    }
+
+    setLocalError(null);
+    onChange(candidate.toISOString());
+  };
+
+  const handleEditCallTime = () => {
+    setCallNow(false);
+    setLocalError(null);
+    setDesktopDate('');
+    setDesktopTime('');
+    onChange('');
+  };
+
+  const handleDateTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputVal = e.target.value;
+    setCallNow(false);
+
+    if (!inputVal) {
+      setLocalError(null);
       onChange('');
+      setDesktopDate('');
+      setDesktopTime('');
+      return;
     }
+
+    const candidate = new Date(inputVal);
+    validateAndSet(candidate);
   };
 
-  // Filter times - only allow times from 8 AM to 9 PM
-  const filterTime = (time: Date) => {
-    const hours = time.getHours();
-    return hours >= 8 && hours <= 21;
-  };
+  const handleDesktopSelection = (nextDate: string, nextTime: string) => {
+    setCallNow(false);
+    setDesktopDate(nextDate);
+    setDesktopTime(nextTime);
 
-  // Filter times for today - exclude past times
-  const filterPassedTime = (time: Date) => {
-    const currentDate = new Date();
-    const selectedDateObj = parsedSelectedDate || new Date();
-
-    // If it's today, filter out past times (with 15 min buffer)
-    if (selectedDateObj.toDateString() === currentDate.toDateString()) {
-      return time.getTime() > currentDate.getTime() + 15 * 60 * 1000;
+    if (!nextDate || !nextTime) {
+      setLocalError(null);
+      return;
     }
-    return true;
+
+    if (nextTime === 'soonest') {
+      const baseDate = nextDate ? new Date(`${nextDate}T00:00:00`) : new Date();
+      const soonest = addMinutes(new Date(), 30);
+      if (baseDate.toDateString() !== soonest.toDateString()) {
+        const adjusted = new Date(baseDate);
+        adjusted.setHours(8, 0, 0, 0);
+        validateAndSet(adjusted);
+        return;
+      }
+      validateAndSet(soonest);
+      return;
+    }
+
+    const candidate = new Date(`${nextDate}T${nextTime}`);
+    validateAndSet(candidate);
   };
-
-  const minDate = new Date();
-  const maxDate = addDays(new Date(), 30);
-
-  // Set min time to 8 AM, max to 9 PM
-  const minTime = setHours(setMinutes(new Date(), 0), 8);
-  const maxTime = setHours(setMinutes(new Date(), 0), 21);
 
   return (
     <div className="w-full space-y-4">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
-          {label}
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-800">
+            {label}
+          </label>
+          <span className="text-xs text-gray-500">Same-day friendly</span>
+        </div>
       )}
 
       {/* Call Now Option */}
@@ -99,14 +165,14 @@ export function DateTimePicker({
         onClick={handleCallNowToggle}
         className="w-full p-4 rounded-xl border-2 transition-all flex items-center gap-3"
         style={{
-          borderColor: callNow ? '#165B33' : '#e5e7eb',
-          backgroundColor: callNow ? 'rgba(22, 91, 51, 0.1)' : 'transparent'
+          borderColor: callNow ? '#111' : '#e5e7eb',
+          backgroundColor: callNow ? '#f3f4f6' : 'transparent'
         }}
       >
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center"
           style={{
-            backgroundColor: callNow ? '#165B33' : '#f3f4f6',
+            backgroundColor: callNow ? '#111' : '#f3f4f6',
             color: callNow ? 'white' : '#6b7280'
           }}
         >
@@ -119,8 +185,8 @@ export function DateTimePicker({
         <div
           className="ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center"
           style={{
-            borderColor: callNow ? '#165B33' : '#d1d5db',
-            backgroundColor: callNow ? '#165B33' : 'transparent'
+            borderColor: callNow ? '#111' : '#d1d5db',
+            backgroundColor: callNow ? '#111' : 'transparent'
           }}
         >
           {callNow && (
@@ -130,53 +196,86 @@ export function DateTimePicker({
           )}
         </div>
       </button>
+      {callNow && (
+        <div className="flex justify-end mt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleEditCallTime}
+          >
+            Edit time instead
+          </Button>
+        </div>
+      )}
 
       {/* Schedule Option */}
       {!callNow && (
         <>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">or schedule for later</span>
-            </div>
-          </div>
-
-          {/* Combined Date & Time Picker */}
-          <div className="relative">
+          <div className="rounded-xl border border-gray-200 p-4 bg-white shadow-sm">
             <div className="flex items-center gap-2 mb-3">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Select Date & Time</span>
+              <Clock3 className="w-4 h-4 text-gray-700" />
+              <span className="text-sm font-medium text-gray-800">Schedule a time</span>
             </div>
 
-            <DatePicker
-              selected={parsedSelectedDate}
-              onChange={handleDateChange}
-              showTimeSelect
-              timeFormat="h:mm aa"
-              timeIntervals={15}
-              dateFormat="MMMM d, yyyy 'at' h:mm aa"
-              minDate={minDate}
-              maxDate={maxDate}
-              minTime={minTime}
-              maxTime={maxTime}
-              filterTime={(time) => filterTime(time) && filterPassedTime(time)}
-              placeholderText="Click to select date and time"
-              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#165B33] focus:outline-none focus:ring-2 focus:ring-[#165B33]/20 text-gray-900 bg-white cursor-pointer"
-              calendarClassName="santa-calendar"
-              wrapperClassName="w-full"
-              showPopperArrow={false}
-              popperPlacement="bottom-start"
-            />
+            {isMobile ? (
+              <div className="flex justify-center">
+                <input
+                  type="datetime-local"
+                  value={parsedSelectedDate ? toLocalInputValue(parsedSelectedDate) : ''}
+                  onChange={handleDateTimeChange}
+                  min={toLocalInputValue(minDateTime)}
+                  max={toLocalInputValue(maxDateTime)}
+                  step={900}
+                  className="w-full max-w-xs min-w-0 px-3 py-3 rounded-lg border border-gray-300 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10 text-gray-900 bg-white shadow-sm text-base"
+                />
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-600">Step 1: Day</label>
+                  <select
+                    value={desktopDate || (parsedSelectedDate ? parsedSelectedDate.toISOString().slice(0, 10) : '')}
+                    onChange={(e) => handleDesktopSelection(e.target.value, desktopTime || (parsedSelectedDate ? parsedSelectedDate.toISOString().slice(11, 16) : ''))}
+                    className="w-full px-3 py-3 rounded-lg border border-gray-300 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10 text-gray-900 bg-white shadow-sm text-sm"
+                  >
+                    <option value="">Select day</option>
+                    {Array.from({ length: 14 }, (_, i) => {
+                      const d = addDays(new Date(), i);
+                      const iso = d.toISOString().slice(0, 10);
+                      const label = i === 0 ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      return <option key={iso} value={iso}>{label}</option>;
+                    })}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-600">Step 2: Time</label>
+                  <select
+                    value={desktopTime || (parsedSelectedDate ? parsedSelectedDate.toISOString().slice(11, 16) : '')}
+                    onChange={(e) => handleDesktopSelection(desktopDate || (parsedSelectedDate ? parsedSelectedDate.toISOString().slice(0, 10) : ''), e.target.value)}
+                    className="w-full px-3 py-3 rounded-lg border border-gray-300 focus:border-black focus:outline-none focus:ring-2 focus:ring-black/10 text-gray-900 bg-white shadow-sm text-sm"
+                  >
+                    <option value="">Select time</option>
+                    <option value="soonest">Soonest available</option>
+                    {Array.from({ length: ((21 - 8) * 4) + 5 }, (_, idx) => {
+                      const minutesFromStart = idx * 15;
+                      const hour = 8 + Math.floor(minutesFromStart / 60);
+                      const minute = minutesFromStart % 60;
+                      if (hour > 21) return null;
+                      const dateObj = setMinutes(setHours(new Date(), hour), minute);
+                      const label = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                      const valueStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                      return <option key={valueStr} value={valueStr}>{label}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Selected DateTime Summary */}
           {parsedSelectedDate && (
-            <div
-              className="p-4 rounded-xl border-2 text-center"
-              style={{ borderColor: '#165B33', backgroundColor: 'rgba(22, 91, 51, 0.05)' }}
-            >
+            <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 text-center">
               <p className="text-sm text-gray-600">Santa will call on</p>
               <p className="text-lg font-medium text-gray-900 mt-1">
                 {parsedSelectedDate.toLocaleDateString('en-US', {
@@ -190,107 +289,25 @@ export function DateTimePicker({
                   hour12: true
                 })}
               </p>
+              {onConfirm && (
+                <div className="mt-5 flex justify-center">
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="px-10 py-3 text-base font-semibold"
+                    onClick={onConfirm}
+                  >
+                    {confirmLabel || 'Confirm'}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </>
       )}
 
       {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-
-      {/* Custom styles for the date picker */}
-      <style jsx global>{`
-        .santa-calendar {
-          font-family: inherit !important;
-          border: 2px solid #e5e7eb !important;
-          border-radius: 1rem !important;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
-          overflow: hidden;
-        }
-
-        .react-datepicker {
-          font-family: inherit !important;
-        }
-
-        .react-datepicker__header {
-          background: linear-gradient(135deg, #C41E3A 0%, #a01830 100%) !important;
-          border-bottom: none !important;
-          padding-top: 12px !important;
-          border-radius: 0 !important;
-        }
-
-        .react-datepicker__current-month,
-        .react-datepicker__day-name,
-        .react-datepicker-time__header {
-          color: white !important;
-        }
-
-        .react-datepicker__navigation-icon::before {
-          border-color: white !important;
-        }
-
-        .react-datepicker__day--selected,
-        .react-datepicker__day--keyboard-selected {
-          background-color: #C41E3A !important;
-          color: white !important;
-          border-radius: 50% !important;
-        }
-
-        .react-datepicker__day:hover {
-          background-color: rgba(196, 30, 58, 0.1) !important;
-          border-radius: 50% !important;
-        }
-
-        .react-datepicker__day--today {
-          background-color: #f3f4f6 !important;
-          border-radius: 50% !important;
-          font-weight: 600 !important;
-        }
-
-        .react-datepicker__day--disabled {
-          color: #d1d5db !important;
-        }
-
-        .react-datepicker__time-container {
-          border-left: 2px solid #e5e7eb !important;
-        }
-
-        .react-datepicker__time-list-item--selected {
-          background-color: #165B33 !important;
-          color: white !important;
-        }
-
-        .react-datepicker__time-list-item:hover {
-          background-color: rgba(22, 91, 51, 0.1) !important;
-        }
-
-        .react-datepicker__month-container {
-          float: none !important;
-        }
-
-        .react-datepicker__day {
-          width: 2.2rem !important;
-          line-height: 2.2rem !important;
-          margin: 0.2rem !important;
-        }
-
-        .react-datepicker__day-name {
-          width: 2.2rem !important;
-          line-height: 2rem !important;
-          margin: 0.2rem !important;
-        }
-
-        .react-datepicker__time-box {
-          width: 100px !important;
-        }
-
-        .react-datepicker__time-list-item {
-          padding: 8px 12px !important;
-        }
-
-        .react-datepicker__triangle {
-          display: none !important;
-        }
-      `}</style>
+      {localError && <p className="text-sm text-red-500 mt-1">{localError}</p>}
     </div>
   );
 }
