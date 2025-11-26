@@ -178,20 +178,34 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
             onReady={({ availablePaymentMethods }) => {
               setExpressReady(Boolean(availablePaymentMethods));
             }}
-            onConfirm={async (_event, actions) => {
+            onConfirm={async (event) => {
               setIsSubmitting(true);
               setWalletError(null);
-              const { error } = await actions.confirmPayment();
-              if (error) {
-                setWalletError(error.message || 'Payment failed. Please try again.');
+              try {
+                const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+                if (!stripe) {
+                  throw new Error('Failed to initialize Stripe');
+                }
+                const { error } = await stripe.confirmPayment({
+                  clientSecret: bookingResult.clientSecret,
+                  confirmParams: {
+                    return_url: `${window.location.origin}/success?call_id=${bookingResult.callId}`,
+                  },
+                  redirect: 'if_required',
+                });
+                if (error) {
+                  event.paymentFailed?.({ reason: 'fail' });
+                  setWalletError(error.message || 'Payment failed. Please try again.');
+                  setIsSubmitting(false);
+                  return;
+                }
+                window.location.href = `/success?call_id=${bookingResult.callId}`;
+              } catch (err) {
+                console.error('Express checkout error:', err);
+                event.paymentFailed?.({ reason: 'fail' });
+                setWalletError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
                 setIsSubmitting(false);
-                return;
               }
-              window.location.href = `/success?call_id=${bookingResult.callId}`;
-            }}
-            onError={(error) => {
-              setWalletError(error.message || 'Payment error. Please try again.');
-              setIsSubmitting(false);
             }}
           />
           {!expressReady && (
