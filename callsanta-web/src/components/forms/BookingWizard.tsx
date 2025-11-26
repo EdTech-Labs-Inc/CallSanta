@@ -478,6 +478,13 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                   stripe={stripePromise}
                   options={{
                     clientSecret: bookingResult.clientSecret,
+                    appearance: {
+                      theme: 'stripe',
+                      variables: {
+                        colorPrimaryText: '#111827',
+                        borderRadius: '8px',
+                      },
+                    },
                   }}
                 >
                   <div className="space-y-3">
@@ -561,6 +568,17 @@ function ExpressCheckoutWrapper({
 
   return (
     <ExpressCheckoutElement
+      options={{
+        buttonHeight: 48,
+        buttonType: {
+          applePay: 'buy',
+          googlePay: 'buy',
+        },
+        layout: {
+          maxColumns: 1,
+          maxRows: 3,
+        },
+      }}
       onReady={({ availablePaymentMethods }) => {
         // Debug: surface what Stripe thinks is available to help diagnose missing wallets
         console.log('Stripe Express availablePaymentMethods', availablePaymentMethods);
