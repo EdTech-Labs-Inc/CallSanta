@@ -1,20 +1,15 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BookingFormData, bookingSchema } from '@/lib/schemas/booking';
-import { Input, Button, Card } from '@/components/ui';
+import { Input, Button } from '@/components/ui';
 import { PhoneInput } from './PhoneInput';
 import { DateTimePicker } from './DateTimePicker';
 import { VoiceRecorder } from './VoiceRecorder';
 import { parsePhoneNumber } from 'react-phone-number-input';
-import {
-  Check,
-  ChevronLeft,
-  CreditCard,
-  Loader2,
-} from 'lucide-react';
+import { CreditCard, Loader2, Mic } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -46,90 +41,18 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   : null;
 
 export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
-  const [formData, setFormData] = useState<BookingFormData | null>(null);
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [expressReady, setExpressReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
-
-  const handleFormSubmit = async (values: BookingFormData) => {
-    setIsSubmitting(true);
-    setFlowError(null);
-    try {
-      const normalized = { ...values, purchaseRecording: values.purchaseRecording ?? false };
-      const result = await onSubmit(normalized, voiceFile);
-      setFormData(normalized);
-      setBookingResult(result);
-    } catch (error) {
-      console.error('Booking creation failed:', error);
-      setFlowError(error instanceof Error ? error.message : 'Unable to create booking.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEdit = () => {
-    setFormData(null);
-    setBookingResult(null);
-    setFlowError(null);
-    setExpressReady(false);
-    setVoiceFile(null);
-  };
-
-  const handleCheckoutRedirect = () => {
-    if (!bookingResult) return;
-    setFlowError(null);
-    setIsSubmitting(true);
-    window.location.href = bookingResult.checkoutUrl;
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      {!formData || !bookingResult ? (
-        <BookingForm
-          onSubmit={handleFormSubmit}
-          pricing={pricing}
-          isSubmitting={isSubmitting}
-          errorMessage={flowError}
-          onVoiceChange={setVoiceFile}
-        />
-      ) : (
-        <BookingReview
-          data={formData}
-          bookingResult={bookingResult}
-          pricing={pricing}
-          onEdit={handleEdit}
-          flowError={flowError}
-          setFlowError={setFlowError}
-          isSubmitting={isSubmitting}
-          setIsSubmitting={setIsSubmitting}
-          expressReady={expressReady}
-          setExpressReady={setExpressReady}
-          onCheckout={handleCheckoutRedirect}
-          hasVoiceNote={!!voiceFile}
-        />
-      )}
-    </div>
-  );
-}
-
-function BookingForm({
-  onSubmit,
-  pricing,
-  isSubmitting,
-  errorMessage,
-  onVoiceChange,
-}: {
-  onSubmit: (data: BookingFormData) => Promise<void>;
-  pricing: PricingInfo;
-  isSubmitting: boolean;
-  errorMessage: string | null;
-  onVoiceChange: (file: File | null) => void;
-}) {
   const [showVoice, setShowVoice] = useState(false);
+  const [preparingPayment, setPreparingPayment] = useState(false);
+
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: {
       childName: '',
       childAge: undefined,
@@ -143,330 +66,320 @@ function BookingForm({
     },
   });
 
-  const { control, handleSubmit, formState: { errors }, setValue } = form;
+  const { control, handleSubmit, formState: { errors }, setValue, watch, trigger } = form;
+  const watchedValues = watch();
+
+  const preparePayment = useCallback(async (values: BookingFormData) => {
+    setIsSubmitting(true);
+    setFlowError(null);
+    try {
+      const normalized = { ...values, purchaseRecording: values.purchaseRecording ?? false };
+      const result = await onSubmit(normalized, voiceFile);
+      setBookingResult(result);
+    } catch (error) {
+      console.error('Booking creation failed:', error);
+      setFlowError(error instanceof Error ? error.message : 'Unable to create booking.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [onSubmit, voiceFile]);
+
+  const handleCheckoutRedirect = () => {
+    if (!bookingResult) return;
+    setFlowError(null);
+    setIsSubmitting(true);
+    window.location.href = bookingResult.checkoutUrl;
+  };
+
+  // Automatically prepare payment options when required fields are filled and valid
+  useEffect(() => {
+    const autoPrepare = async () => {
+      if (bookingResult || preparingPayment || isSubmitting) return;
+
+      const hasRequired =
+        Boolean(watchedValues.childName) &&
+        Boolean(watchedValues.childAge) &&
+        Boolean(watchedValues.phoneNumber) &&
+        Boolean(watchedValues.scheduledAt) &&
+        Boolean(watchedValues.timezone) &&
+        Boolean(watchedValues.parentEmail);
+
+      if (!hasRequired) return;
+
+      setPreparingPayment(true);
+      const valid = await trigger([
+        'childName',
+        'childAge',
+        'phoneNumber',
+        'scheduledAt',
+        'timezone',
+        'parentEmail',
+      ]);
+
+      if (valid) {
+        await handleSubmit(preparePayment)();
+      }
+
+      setPreparingPayment(false);
+    };
+
+    void autoPrepare();
+  }, [
+    bookingResult,
+    handleSubmit,
+    isSubmitting,
+    preparePayment,
+    preparingPayment,
+    trigger,
+    watchedValues.childAge,
+    watchedValues.childName,
+    watchedValues.parentEmail,
+    watchedValues.phoneNumber,
+    watchedValues.scheduledAt,
+    watchedValues.timezone,
+  ]);
+
+  const totalDisplay = useMemo(
+    () => `$${((pricing.basePrice + (watchedValues.purchaseRecording ? pricing.recordingPrice ?? 0 : 0)) / 100).toFixed(2)}`,
+    [pricing.basePrice, pricing.recordingPrice, watchedValues.purchaseRecording]
+  );
 
   return (
-    <Card variant="festive" className="p-8">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-display font-bold text-gray-900">
-              Book your Santa call
-            </h2>
-            <p className="text-gray-600 mt-1">
-              One quick form, then review and pay on the next step.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Call price</p>
-            <p className="text-xl font-bold text-santa-green">
-              ${(pricing.basePrice / 100).toFixed(2)}
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <div className="space-y-2 px-0 sm:px-0">
+        <h2 className="text-2xl font-semibold text-gray-900">Schedule &amp; Pay</h2>
+        <p className="text-gray-600">
+          Give Santa some details so he knows when and who to call.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Controller
-            name="childName"
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                label="Child's Name"
-                placeholder="Enter first name"
-                error={errors.childName?.message}
-              />
-            )}
-          />
-
-          <Controller
-            name="childAge"
-            control={control}
-            render={({ field }) => (
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Age
-                </label>
-                <select
-                  value={field.value ?? ''}
-                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-santa-green focus:border-transparent border-gray-300"
-                >
-                  <option value="">Select age</option>
-                  {Array.from({ length: 18 }, (_, i) => i + 1).map((age) => (
-                    <option key={age} value={age}>{age} years old</option>
-                  ))}
-                </select>
-                {errors.childAge && (
-                  <p className="mt-1 text-sm text-red-500">{errors.childAge.message}</p>
+      <div className="grid gap-4 sm:gap-6 lg:gap-8 lg:grid-cols-2 px-0 sm:px-0">
+        <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit(preparePayment)}>
+          <div className="space-y-6 rounded-xl border border-gray-200 p-4 sm:p-5 bg-white shadow-sm w-full">
+            <p className="text-sm font-semibold text-gray-900">Contact</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Controller
+                name="childName"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    label="Child's Name"
+                    placeholder="Enter first name"
+                    error={errors.childName?.message}
+                  />
                 )}
-              </div>
-            )}
-          />
-        </div>
+              />
 
-        <Controller
-          name="phoneNumber"
-          control={control}
-          render={({ field }) => (
-            <PhoneInput
-              value={field.value}
-              onChange={(value) => {
-                field.onChange(value ?? '');
-                if (value) {
-                  const parsed = parsePhoneNumber(value);
-                  if (parsed?.countryCallingCode) {
-                    setValue('phoneCountryCode', `+${parsed.countryCallingCode}`);
-                  }
-                }
-              }}
-              label="Phone Number"
-              error={errors.phoneNumber?.message}
-            />
-          )}
-        />
+              <Controller
+                name="childAge"
+                control={control}
+                render={({ field }) => (
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Age
+                    </label>
+                    <select
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent border-gray-300 bg-white"
+                    >
+                      <option value="">Select age</option>
+                      {Array.from({ length: 18 }, (_, i) => i + 1).map((age) => (
+                        <option key={age} value={age}>{age} years old</option>
+                      ))}
+                    </select>
+                    {errors.childAge && (
+                      <p className="mt-1 text-sm text-red-500">{errors.childAge.message}</p>
+                    )}
+                  </div>
+                )}
+              />
+            </div>
 
-        <Controller
-          name="scheduledAt"
-          control={control}
-          render={({ field }) => (
             <Controller
-              name="timezone"
+              name="phoneNumber"
               control={control}
-              render={({ field: tzField }) => (
-                <DateTimePicker
+              render={({ field }) => (
+                <PhoneInput
                   value={field.value}
-                  onChange={field.onChange}
-                  onTimezoneChange={tzField.onChange}
-                  label="When should Santa call?"
-                  error={errors.scheduledAt?.message}
+                  onChange={(value) => {
+                    field.onChange(value ?? '');
+                    if (value) {
+                      const parsed = parsePhoneNumber(value);
+                      if (parsed?.countryCallingCode) {
+                        setValue('phoneCountryCode', `+${parsed.countryCallingCode}`);
+                      }
+                    }
+                  }}
+                  label="Phone Number"
+                  error={errors.phoneNumber?.message}
                 />
               )}
             />
-          )}
-        />
 
-        <div className="space-y-3">
-          <Controller
-            name="childInfoText"
-            control={control}
-            render={({ field }) => (
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Extra details for Santa (optional)
-                </label>
-                <textarea
+            <Controller
+              name="parentEmail"
+              control={control}
+              render={({ field }) => (
+                <Input
                   {...field}
-                  rows={4}
-                  placeholder="Share interests, recent wins, or anything Santa should mention."
-                  className="w-full px-4 py-3 rounded-lg border transition-colors resize-none focus:outline-none focus:ring-2 focus:ring-santa-green focus:border-transparent placeholder:text-gray-400 border-gray-300 hover:border-gray-400"
+                  type="email"
+                  label="Your Email"
+                  placeholder="you@example.com"
+                  error={errors.parentEmail?.message}
                 />
-              </div>
-            )}
-          />
-
-          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/70 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm text-gray-700">
-                Prefer to speak? Add a quick voice note for Santa.
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowVoice((prev) => !prev)}
-              >
-                {showVoice ? 'Hide' : 'Add voice note'}
-              </Button>
-            </div>
-            {showVoice && (
-              <div className="mt-3">
-                <VoiceRecorder
-                  onRecordingChange={onVoiceChange}
-                  description="Record up to 2 minutes. We’ll pass this to Santa with your notes."
-                  maxDuration={120}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <Controller
-          name="parentEmail"
-          control={control}
-          render={({ field }) => (
-            <Input
-              {...field}
-              type="email"
-              label="Your Email"
-              placeholder="you@example.com"
-              error={errors.parentEmail?.message}
+              )}
             />
-          )}
-        />
-
-        {errorMessage && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-            {errorMessage}
           </div>
-        )}
 
-        <Button type="submit" disabled={isSubmitting} size="lg" className="w-full sm:w-auto">
-          {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Review &amp; Pay
-        </Button>
-      </form>
-    </Card>
-  );
-}
+          <div className="space-y-4 rounded-xl border border-gray-200 p-4 sm:p-5 bg-white shadow-sm w-full">
+            <p className="text-sm font-semibold text-gray-900">Time</p>
+            <Controller
+              name="scheduledAt"
+              control={control}
+              render={({ field }) => (
+                <Controller
+                  name="timezone"
+                  control={control}
+                  render={({ field: tzField }) => (
+                    <DateTimePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      onTimezoneChange={tzField.onChange}
+                      label="When should Santa call?"
+                      error={errors.scheduledAt?.message}
+                    />
+                  )}
+                />
+              )}
+            />
+          </div>
 
-function BookingReview({
-  data,
-  bookingResult,
-  pricing,
-  onEdit,
-  flowError,
-  setFlowError,
-  isSubmitting,
-  setIsSubmitting,
-  expressReady,
-  setExpressReady,
-  onCheckout,
-  hasVoiceNote,
-}: {
-  data: BookingFormData;
-  bookingResult: BookingResult;
-  pricing: PricingInfo;
-  onEdit: () => void;
-  flowError: string | null;
-  setFlowError: (message: string | null) => void;
-  isSubmitting: boolean;
-  setIsSubmitting: (value: boolean) => void;
-  expressReady: boolean;
-  setExpressReady: (value: boolean) => void;
-  onCheckout: () => void;
-  hasVoiceNote: boolean;
-}) {
-  const formattedTotal = `$${(bookingResult.amount / 100).toFixed(2)}`;
+          <div className="space-y-4 rounded-xl border border-gray-200 p-4 sm:p-5 bg-white shadow-sm w-full">
+            <p className="text-sm font-semibold text-gray-900">Notes</p>
+            <Controller
+              name="childInfoText"
+              control={control}
+              render={({ field }) => (
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes for Santa (optional)
+                  </label>
+                  <textarea
+                    {...field}
+                    rows={4}
+                    placeholder="Interests, wins, anything Santa should mention."
+                    className="w-full px-4 py-3 rounded-lg border transition-colors resize-none focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent placeholder:text-gray-400 border-gray-300 bg-white"
+                  />
+                </div>
+              )}
+            />
 
-  const renderExpressCheckout = () => {
-    if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || !stripePromise) {
-      return (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
-          Payment buttons will appear once Stripe is configured.
-        </div>
-      );
-    }
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm text-gray-700">
+                  Prefer voice? Add a quick note.
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="bg-black text-white hover:bg-gray-800"
+                  onClick={() => setShowVoice((prev) => !prev)}
+                  aria-label={showVoice ? 'Hide voice recorder' : 'Add voice note'}
+                >
+                  <Mic className="w-4 h-4" />
+                </Button>
+              </div>
+              {showVoice && (
+                <div className="mt-3">
+                  <VoiceRecorder
+                    onRecordingChange={setVoiceFile}
+                    description="Record up to 2 minutes."
+                    maxDuration={120}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
 
-    return (
-      <Elements
-        stripe={stripePromise}
-        options={{
-          clientSecret: bookingResult.clientSecret,
-          appearance: { theme: 'flat', variables: { borderRadius: '12px' } },
-        }}
-      >
-        <div className="space-y-3">
-          <ExpressCheckoutWrapper
-            bookingResult={bookingResult}
-            setFlowError={setFlowError}
-            setIsSubmitting={setIsSubmitting}
-            setExpressReady={setExpressReady}
-          />
-          {!expressReady && (
-            <p className="text-sm text-gray-500">
-              Apple Pay / Google Pay buttons appear automatically if supported on this device.
-            </p>
+          {flowError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+              {flowError}
+            </div>
           )}
-        </div>
-      </Elements>
-    );
-  };
 
-  return (
-    <Card variant="festive" className="p-8 space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-display font-bold text-gray-900">
-            Review &amp; Pay
-          </h2>
-          <p className="text-gray-600 mt-1">
-            Confirm the details, then choose Apple Pay or card checkout.
+          <p className="text-xs text-gray-500">
+            {preparingPayment && ' Preparing payment…'}
           </p>
-        </div>
-        <Button variant="ghost" onClick={onEdit}>
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Edit details
-        </Button>
-      </div>
+        </form>
 
-      <div className="space-y-4">
-        <ReviewSection title="Child">
-          <ReviewItem label="Name" value={data.childName} />
-          <ReviewItem label="Age" value={`${data.childAge} years old`} />
-          <ReviewItem label="Notes" value={data.childInfoText || '-'} />
-          <ReviewItem label="Voice note" value={hasVoiceNote ? 'Attached' : 'None'} />
-        </ReviewSection>
-
-        <ReviewSection title="Call">
-          <ReviewItem label="Phone" value={data.phoneNumber} />
-          <ReviewItem
-            label="When"
-            value={data.scheduledAt ? new Date(data.scheduledAt).toLocaleString() : 'Call now'}
-          />
-        </ReviewSection>
-
-        <ReviewSection title="Contact">
-          <ReviewItem label="Email" value={data.parentEmail} />
-        </ReviewSection>
-      </div>
-
-      <div className="bg-gray-50 rounded-xl p-6 space-y-3">
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>Santa Call</span>
-          <span>${(pricing.basePrice / 100).toFixed(2)}</span>
-        </div>
-        <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold">Total</span>
-            <Check className="w-4 h-4 text-santa-green" />
+        <div className="space-y-4 border border-gray-200 rounded-lg p-4 sm:p-5 bg-white lg:bg-gray-50 w-full">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">Payment</h3>
+            <span className="text-2xl font-bold text-gray-900">{totalDisplay}</span>
           </div>
-          <span className="text-xl font-bold text-santa-green">{formattedTotal}</span>
+
+            {bookingResult ? (
+              <div className="space-y-4">
+                {process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY && stripePromise ? (
+                  <Elements
+                    stripe={stripePromise}
+                    options={{
+                      clientSecret: bookingResult.clientSecret,
+                      appearance: { theme: 'flat', variables: { colorPrimaryText: '#111' } },
+                    }}
+                  >
+                    <div className="space-y-3">
+                      <ExpressCheckoutWrapper
+                        bookingResult={bookingResult}
+                        setFlowError={setFlowError}
+                        setIsSubmitting={setIsSubmitting}
+                        setExpressReady={setExpressReady}
+                      />
+                      {!expressReady && (
+                        <p className="text-xs text-gray-500">
+                          Apple Pay / Google Pay appears automatically if supported.
+                        </p>
+                      )}
+                    </div>
+                  </Elements>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
+                    Stripe keys missing; payment buttons unavailable.
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-gray-300" />
+                  <span className="text-xs uppercase tracking-wide text-gray-400">or</span>
+                  <div className="flex-1 h-px bg-gray-300" />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCheckoutRedirect}
+                  disabled={isSubmitting}
+                  className="w-full bg-gray-200 text-gray-800 border border-gray-300 hover:bg-gray-300"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CreditCard className="w-4 h-4 mr-2" />
+                  )}
+                  Pay with card
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Payment buttons appear once the form is complete and validated.
+              </p>
+            )}
+          </div>
         </div>
       </div>
-
-      {flowError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-          {flowError}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {renderExpressCheckout()}
-
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs uppercase tracking-wide text-gray-400">or</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onCheckout}
-          disabled={isSubmitting}
-          size="lg"
-          className="w-full sm:w-auto"
-        >
-          {isSubmitting ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <CreditCard className="w-4 h-4 mr-2" />
-          )}
-          Pay with Card
-        </Button>
-      </div>
-    </Card>
   );
 }
 
@@ -527,23 +440,5 @@ function ExpressCheckoutWrapper({
         }
       }}
     />
-  );
-}
-
-function ReviewSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="border border-gray-200 rounded-lg p-4">
-      <h3 className="font-medium text-gray-900 mb-2">{title}</h3>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
-}
-
-function ReviewItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between text-sm">
-      <span className="text-gray-500">{label}</span>
-      <span className="text-gray-900 text-right">{value || '-'}</span>
-    </div>
   );
 }
