@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BookingFormData, bookingSchema } from '@/lib/schemas/booking';
@@ -217,6 +217,27 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
       </Elements>
     );
   };
+
+  // Automatically prepare payment intent when user reaches the review step so Express Checkout can render immediately.
+  useEffect(() => {
+    const preparePayment = async () => {
+      if (currentStep !== 4 || bookingResult) return;
+      const isValid = await form.trigger();
+      if (!isValid) return;
+      setIsSubmitting(true);
+      setWalletError(null);
+      try {
+        await submitBookingIfNeeded();
+      } catch (error) {
+        console.error('Booking preparation failed:', error);
+        setWalletError(error instanceof Error ? error.message : 'Unable to prepare payment.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    void preparePayment();
+  }, [currentStep, bookingResult, form, submitBookingIfNeeded]);
 
   return (
     <div className="max-w-2xl mx-auto">
