@@ -51,6 +51,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
   const [collapsed, setCollapsed] = useState({ contact: false, time: false });
   const [editingSection, setEditingSection] = useState<'contact' | 'time' | null>(null);
   const [lastCollapsedKey, setLastCollapsedKey] = useState<{ contact?: string; time?: string }>({});
+  const [notesTouched, setNotesTouched] = useState(false);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -94,39 +95,34 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     window.location.href = bookingResult.checkoutUrl;
   };
 
-  // Automatically prepare payment options when required fields are filled and valid
-  useEffect(() => {
-    const autoPrepare = async () => {
-      if (bookingResult || preparingPayment || isSubmitting) return;
+  const tryPreparePayment = useCallback(async () => {
+    if (bookingResult || preparingPayment || isSubmitting) return;
 
-      const hasRequired =
-        Boolean(watchedValues.childName) &&
-        Boolean(watchedValues.childAge) &&
-        Boolean(watchedValues.phoneNumber) &&
-        Boolean(watchedValues.scheduledAt) &&
-        Boolean(watchedValues.timezone) &&
-        Boolean(watchedValues.parentEmail);
+    const hasRequired =
+      Boolean(watchedValues.childName) &&
+      Boolean(watchedValues.childAge) &&
+      Boolean(watchedValues.phoneNumber) &&
+      Boolean(watchedValues.scheduledAt) &&
+      Boolean(watchedValues.timezone) &&
+      Boolean(watchedValues.parentEmail);
 
-      if (!hasRequired) return;
+    if (!hasRequired) return;
 
-      setPreparingPayment(true);
-      const valid = await trigger([
-        'childName',
-        'childAge',
-        'phoneNumber',
-        'scheduledAt',
-        'timezone',
-        'parentEmail',
-      ]);
+    setPreparingPayment(true);
+    const valid = await trigger([
+      'childName',
+      'childAge',
+      'phoneNumber',
+      'scheduledAt',
+      'timezone',
+      'parentEmail',
+    ]);
 
-      if (valid) {
-        await handleSubmit(preparePayment)();
-      }
+    if (valid) {
+      await handleSubmit(preparePayment)();
+    }
 
-      setPreparingPayment(false);
-    };
-
-    void autoPrepare();
+    setPreparingPayment(false);
   }, [
     bookingResult,
     handleSubmit,
@@ -141,6 +137,11 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     watchedValues.scheduledAt,
     watchedValues.timezone,
   ]);
+
+  // Automatically prepare payment options when required fields are filled and valid
+  useEffect(() => {
+    void tryPreparePayment();
+  }, [tryPreparePayment]);
 
   const totalDisplay = useMemo(
     () => `$${((pricing.basePrice + (watchedValues.purchaseRecording ? pricing.recordingPrice ?? 0 : 0)) / 100).toFixed(2)}`,
@@ -187,6 +188,12 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
       setLastCollapsedKey((prev) => ({ ...prev, contact: key }));
     }
   }, [collapsed.contact, editingSection, lastCollapsedKey.contact, trigger, watchedValues.childAge, watchedValues.childName, watchedValues.parentEmail, watchedValues.phoneNumber]);
+
+  // Kick off payment intent once the user finishes the details/notes section
+  useEffect(() => {
+    if (!notesTouched) return;
+    void tryPreparePayment();
+  }, [notesTouched, tryPreparePayment]);
 
   return (
     <div className="space-y-8 text-base sm:text-lg">
@@ -381,6 +388,15 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                     rows={4}
                     placeholder="Interests, wins, anything Santa should mention."
                     className="w-full px-4 py-3 rounded-lg border transition-colors resize-none focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent placeholder:text-gray-400 border-gray-300 bg-white"
+                    onBlur={(event) => {
+                      field.onBlur();
+                      setNotesTouched(true);
+                      void tryPreparePayment();
+                    }}
+                    onChange={(event) => {
+                      field.onChange(event);
+                      if (!notesTouched) setNotesTouched(true);
+                    }}
                   />
                 </div>
               )}
@@ -405,7 +421,11 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
               {showVoice && (
                 <div className="mt-3">
                   <VoiceRecorder
-                    onRecordingChange={setVoiceFile}
+                    onRecordingChange={(file) => {
+                      setVoiceFile(file);
+                      setNotesTouched(true);
+                      void tryPreparePayment();
+                    }}
                     description="Record up to 2 minutes."
                     maxDuration={120}
                   />
