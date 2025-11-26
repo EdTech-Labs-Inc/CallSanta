@@ -225,9 +225,6 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
         stripe={stripePromise}
         options={{
           clientSecret: bookingResult.clientSecret,
-          mode: 'payment',
-          amount: bookingResult.amount,
-          currency: bookingResult.currency,
           appearance: {
             theme: 'flat',
             variables: { borderRadius: '12px' },
