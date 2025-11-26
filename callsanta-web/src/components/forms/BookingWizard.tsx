@@ -51,7 +51,6 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
   const [collapsed, setCollapsed] = useState({ contact: false, time: false });
   const [editingSection, setEditingSection] = useState<'contact' | 'time' | null>(null);
   const [lastCollapsedKey, setLastCollapsedKey] = useState<{ contact?: string; time?: string }>({});
-  const [notesTouched, setNotesTouched] = useState(false);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -138,11 +137,6 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     watchedValues.timezone,
   ]);
 
-  // Automatically prepare payment options when required fields are filled and valid
-  useEffect(() => {
-    void tryPreparePayment();
-  }, [tryPreparePayment]);
-
   const totalDisplay = useMemo(
     () => `$${((pricing.basePrice + (watchedValues.purchaseRecording ? pricing.recordingPrice ?? 0 : 0)) / 100).toFixed(2)}`,
     [pricing.basePrice, pricing.recordingPrice, watchedValues.purchaseRecording]
@@ -189,11 +183,28 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     }
   }, [collapsed.contact, editingSection, lastCollapsedKey.contact, trigger, watchedValues.childAge, watchedValues.childName, watchedValues.parentEmail, watchedValues.phoneNumber]);
 
-  // Kick off payment intent once the user finishes the details/notes section
+  // Trigger PaymentIntent creation once required sections are completed
   useEffect(() => {
-    if (!notesTouched) return;
+    const ready =
+      collapsed.contact &&
+      collapsed.time &&
+      Boolean(watchedValues.parentEmail) &&
+      !bookingResult &&
+      !preparingPayment &&
+      !isSubmitting;
+
+    if (!ready) return;
+
     void tryPreparePayment();
-  }, [notesTouched, tryPreparePayment]);
+  }, [
+    bookingResult,
+    collapsed.contact,
+    collapsed.time,
+    isSubmitting,
+    preparingPayment,
+    tryPreparePayment,
+    watchedValues.parentEmail,
+  ]);
 
   return (
     <div className="space-y-8 text-base sm:text-lg">
@@ -388,15 +399,8 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                     rows={4}
                     placeholder="Interests, wins, anything Santa should mention."
                     className="w-full px-4 py-3 rounded-lg border transition-colors resize-none focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent placeholder:text-gray-400 border-gray-300 bg-white"
-                    onBlur={(event) => {
-                      field.onBlur();
-                      setNotesTouched(true);
-                      void tryPreparePayment();
-                    }}
-                    onChange={(event) => {
-                      field.onChange(event);
-                      if (!notesTouched) setNotesTouched(true);
-                    }}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
                   />
                 </div>
               )}
@@ -421,11 +425,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
               {showVoice && (
                 <div className="mt-3">
                   <VoiceRecorder
-                    onRecordingChange={(file) => {
-                      setVoiceFile(file);
-                      setNotesTouched(true);
-                      void tryPreparePayment();
-                    }}
+                    onRecordingChange={setVoiceFile}
                     description="Record up to 2 minutes."
                     maxDuration={120}
                   />
