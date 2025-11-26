@@ -533,6 +533,8 @@ function ExpressCheckoutWrapper({
   return (
     <ExpressCheckoutElement
       onReady={({ availablePaymentMethods }) => {
+        // Debug: surface what Stripe thinks is available to help diagnose missing wallets
+        console.log('Stripe Express availablePaymentMethods', availablePaymentMethods);
         setExpressReady(Boolean(availablePaymentMethods));
       }}
       onConfirm={async (event) => {
