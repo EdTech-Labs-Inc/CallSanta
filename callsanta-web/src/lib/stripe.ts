@@ -12,6 +12,27 @@ interface CheckoutSessionResult {
   url: string;
 }
 
+export async function createPaymentIntent(params: {
+  call: Call;
+  includeRecording: boolean;
+  amountCents: number;
+  currency: string;
+}) {
+  const { call, includeRecording, amountCents, currency } = params;
+
+  return stripe.paymentIntents.create({
+    amount: amountCents,
+    currency,
+    automatic_payment_methods: { enabled: true },
+    metadata: {
+      call_id: call.id,
+      child_name: call.child_name,
+      include_recording: includeRecording.toString(),
+    },
+    receipt_email: call.parent_email,
+  });
+}
+
 /**
  * Creates a Stripe checkout session for a Santa call booking
  */

@@ -45,25 +45,24 @@ function MicrophoneIcon({ className }: { className?: string }) {
 }
 
 interface PageProps {
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; call_id?: string }>;
 }
 
 export default async function SuccessPage({ searchParams }: PageProps) {
-  const { session_id } = await searchParams;
+  const { session_id, call_id } = await searchParams;
 
-  if (!session_id) {
-    redirect("/");
+  let callId = call_id || null;
+
+  if (session_id) {
+    // Fetch session details from Stripe (legacy checkout flow)
+    try {
+      const session = await getCheckoutSession(session_id);
+      callId = session.metadata?.call_id || null;
+    } catch {
+      redirect("/");
+    }
   }
 
-  // Fetch session details from Stripe
-  let session;
-  try {
-    session = await getCheckoutSession(session_id);
-  } catch {
-    redirect("/");
-  }
-
-  const callId = session.metadata?.call_id;
   if (!callId) {
     redirect("/");
   }

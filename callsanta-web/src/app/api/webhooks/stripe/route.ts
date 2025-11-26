@@ -120,10 +120,38 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     return;
   }
 
+  const isRecordingPurchase = paymentIntent.metadata?.type === 'recording_purchase';
+  const includeRecording = paymentIntent.metadata?.include_recording === 'true';
+
+  const updates: Record<string, unknown> = {
+    stripe_payment_intent_id: paymentIntent.id,
+  };
+
+  if (isRecordingPurchase) {
+    updates.recording_purchased = true;
+    updates.recording_purchased_at = new Date().toISOString();
+  } else {
+    updates.payment_status = 'paid';
+    updates.call_status = 'scheduled';
+    updates.recording_purchased = includeRecording;
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('calls')
+    .update(updates)
+    .eq('id', callId);
+
+  if (updateError) {
+    console.error('Error updating call after payment intent success:', updateError);
+    throw updateError;
+  }
+
   await logCallEvent(callId, 'payment_intent_succeeded', {
     payment_intent_id: paymentIntent.id,
     amount: paymentIntent.amount,
     currency: paymentIntent.currency,
+    include_recording: includeRecording,
+    type: paymentIntent.metadata?.type,
   });
 }
 
@@ -139,6 +167,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     .from('calls')
     .update({
       payment_status: 'failed',
+      stripe_payment_intent_id: paymentIntent.id,
     })
     .eq('id', callId);
 

@@ -20,6 +20,7 @@ import {
   Check,
   Loader2
 } from 'lucide-react';
+import { loadStripe } from '@stripe/stripe-js';
 
 const STEPS = [
   { id: 1, title: "Child's Info", icon: User },
@@ -36,7 +37,15 @@ const NATIONALITIES = [
 ];
 
 interface BookingWizardProps {
-  onSubmit: (data: BookingFormData, voiceFile: File | null) => Promise<{ checkoutUrl: string }>;
+  onSubmit: (
+    data: BookingFormData,
+    voiceFile: File | null
+  ) => Promise<{
+    callId: string;
+    clientSecret: string;
+    amount: number;
+    currency: string;
+  }>;
   pricing: {
     basePrice: number;
     recordingPrice: number;
@@ -47,6 +56,14 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingResult, setBookingResult] = useState<{
+    callId: string;
+    clientSecret: string;
+    amount: number;
+    currency: string;
+    checkoutUrl: string;
+  } | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -98,19 +115,101 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     }
   };
 
-  const handleSubmit = async () => {
+  const submitBookingIfNeeded = async () => {
+    if (bookingResult) return bookingResult;
+
+    const data = form.getValues();
+    const result = await onSubmit(data, voiceFile);
+    setBookingResult(result);
+    return result;
+  };
+
+  const handleWalletPay = async () => {
     const isValid = await form.trigger();
     if (!isValid) return;
 
     setIsSubmitting(true);
+    setWalletError(null);
     try {
-      const data = form.getValues();
-      const result = await onSubmit(data, voiceFile);
+      const result = await submitBookingIfNeeded();
 
-      // Redirect to Stripe checkout
+      if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+        throw new Error('Stripe publishable key is not configured');
+      }
+
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+      if (!stripe) {
+        throw new Error('Failed to initialize Stripe');
+      }
+
+      const paymentRequest = stripe.paymentRequest({
+        country: 'US',
+        currency: result.currency,
+        total: {
+          label: 'Santa Call',
+          amount: result.amount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+
+      const canPay = await paymentRequest.canMakePayment();
+      if (!canPay) {
+        setWalletError('Apple Pay or Google Pay is not available in this browser. Try Safari for Apple Pay or Chrome on Android.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      paymentRequest.on('paymentmethod', async (ev) => {
+        const confirmation = await stripe.confirmCardPayment(
+          result.clientSecret,
+          {
+            payment_method: ev.paymentMethod.id,
+          },
+          { handleActions: true }
+        );
+
+        if (confirmation.error || confirmation.paymentIntent?.status !== 'succeeded') {
+          ev.complete('fail');
+          setWalletError(confirmation.error?.message || 'Payment failed. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        ev.complete('success');
+        window.location.href = `/success?call_id=${result.callId}`;
+      });
+
+      paymentRequest.on('cancel', () => {
+        setIsSubmitting(false);
+      });
+
+      try {
+        await paymentRequest.show();
+      } catch (showError) {
+        console.error('Payment Request show error:', showError);
+        setWalletError('Unable to open Apple Pay / Google Pay on this device.');
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      console.error('Booking submission failed:', error);
+      setWalletError(error instanceof Error ? error.message : 'Payment failed. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCheckoutRedirect = async () => {
+    const isValid = await form.trigger();
+    if (!isValid) return;
+
+    setIsSubmitting(true);
+    setWalletError(null);
+    try {
+      const result = await submitBookingIfNeeded();
       window.location.href = result.checkoutUrl;
     } catch (error) {
       console.error('Booking submission failed:', error);
+      setWalletError(error instanceof Error ? error.message : 'Payment failed. Please try again.');
       setIsSubmitting(false);
     }
   };
@@ -501,6 +600,12 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                 </div>
               </div>
             </div>
+
+            {walletError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+                {walletError}
+              </div>
+            )}
           </div>
         )}
 
@@ -528,24 +633,35 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           ) : (
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              size="lg"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Proceed to Payment
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <Button
+                type="button"
+                onClick={handleWalletPay}
+                disabled={isSubmitting}
+                size="lg"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Apple Pay / Google Pay
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCheckoutRedirect}
+                disabled={isSubmitting}
+                size="lg"
+              >
+                Pay with Card (Stripe Checkout)
+              </Button>
+            </div>
           )}
         </div>
       </Card>

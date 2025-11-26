@@ -15,7 +15,13 @@ const PRICING = {
 async function handleBookingSubmit(
   data: BookingFormData,
   voiceFile: File | null
-): Promise<{ checkoutUrl: string }> {
+): Promise<{
+  callId: string;
+  clientSecret: string;
+  amount: number;
+  currency: string;
+  checkoutUrl: string;
+}> {
   // Use FormData to send both JSON data and the audio file
   const formData = new FormData();
   formData.append('data', JSON.stringify(data));
@@ -33,8 +39,7 @@ async function handleBookingSubmit(
     throw new Error('Failed to create booking');
   }
 
-  const result = await response.json();
-  return { checkoutUrl: result.checkoutUrl };
+  return response.json();
 }
 
 export default function BookPage() {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { bookingSchema } from '@/lib/schemas/booking';
-import { createCheckoutSession } from '@/lib/stripe';
+import { createCheckoutSession, createPaymentIntent } from '@/lib/stripe';
 import { transcribeAudio } from '@/lib/transcription';
 import { v4 as uuid } from 'uuid';
 import { Call } from '@/types/database';
@@ -161,21 +161,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Create Stripe checkout session (placeholder for now)
+    // 7. Create Stripe PaymentIntent for in-app wallets
+    const currency = pricing.currency || 'usd';
+    const paymentIntent = await createPaymentIntent({
+      call: call as Call,
+      includeRecording: validated.purchaseRecording,
+      amountCents: totalAmount,
+      currency,
+    });
+
+    if (!paymentIntent.client_secret) {
+      throw new Error('Missing client secret on payment intent');
+    }
+
+    // 8. Create legacy Stripe Checkout session as fallback
     const checkoutResult = await createCheckoutSession(
       call as Call,
       validated.purchaseRecording
     );
 
-    // 8. Update call with Stripe session ID
+    // 9. Update call with Stripe IDs
     await supabaseAdmin
       .from('calls')
-      .update({ stripe_checkout_session_id: checkoutResult.sessionId })
+      .update({
+        stripe_payment_intent_id: paymentIntent.id,
+        stripe_checkout_session_id: checkoutResult.sessionId,
+      })
       .eq('id', call.id);
 
-    // 9. Return success response
+    // 10. Return success response
     return NextResponse.json({
       callId: call.id,
+      clientSecret: paymentIntent.client_secret,
+      amount: totalAmount,
+      currency,
       checkoutUrl: checkoutResult.url,
     });
   } catch (error) {
