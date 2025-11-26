@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fffdf7;
+  --foreground: #1a1a1a;
+  --santa-red: #C41E3A;
+  --santa-green: #165B33;
+  --santa-gold: #FFD700;
+  --santa-cream: #FFFDD0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-santa-red: #C41E3A;
+  --color-santa-green: #165B33;
+  --color-santa-gold: #FFD700;
+  --color-santa-cream: #FFFDD0;
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), Arial, sans-serif;
+}
+
+/* Festive gradient background */
+.festive-gradient {
+  background: linear-gradient(
+    180deg,
+    #0c1445 0%,
+    #1a237e 30%,
+    #283593 60%,
+    #3949ab 100%
+  );
+}
+
+/* Snowfall Animation */
+.snowfall {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.snowflake {
+  position: absolute;
+  top: -10px;
+  color: white;
+  font-size: 1rem;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+  animation: snowfall linear infinite;
+  opacity: 0.8;
+}
+
+@keyframes snowfall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+  }
+}
+
+/* Generate snowflakes with different sizes and positions */
+.snowflake:nth-child(1) { left: 5%; animation-duration: 10s; animation-delay: 0s; font-size: 0.8rem; }
+.snowflake:nth-child(2) { left: 15%; animation-duration: 12s; animation-delay: 1s; font-size: 1.2rem; }
+.snowflake:nth-child(3) { left: 25%; animation-duration: 8s; animation-delay: 2s; font-size: 0.6rem; }
+.snowflake:nth-child(4) { left: 35%; animation-duration: 15s; animation-delay: 0.5s; font-size: 1rem; }
+.snowflake:nth-child(5) { left: 45%; animation-duration: 11s; animation-delay: 3s; font-size: 0.9rem; }
+.snowflake:nth-child(6) { left: 55%; animation-duration: 9s; animation-delay: 1.5s; font-size: 1.1rem; }
+.snowflake:nth-child(7) { left: 65%; animation-duration: 14s; animation-delay: 2.5s; font-size: 0.7rem; }
+.snowflake:nth-child(8) { left: 75%; animation-duration: 10s; animation-delay: 4s; font-size: 1.3rem; }
+.snowflake:nth-child(9) { left: 85%; animation-duration: 13s; animation-delay: 0.8s; font-size: 0.5rem; }
+.snowflake:nth-child(10) { left: 95%; animation-duration: 7s; animation-delay: 3.5s; font-size: 1rem; }
+.snowflake:nth-child(11) { left: 10%; animation-duration: 16s; animation-delay: 5s; font-size: 0.8rem; }
+.snowflake:nth-child(12) { left: 20%; animation-duration: 9s; animation-delay: 6s; font-size: 1.1rem; }
+.snowflake:nth-child(13) { left: 30%; animation-duration: 11s; animation-delay: 4.5s; font-size: 0.6rem; }
+.snowflake:nth-child(14) { left: 40%; animation-duration: 8s; animation-delay: 7s; font-size: 1.2rem; }
+.snowflake:nth-child(15) { left: 50%; animation-duration: 12s; animation-delay: 2s; font-size: 0.9rem; }
+.snowflake:nth-child(16) { left: 60%; animation-duration: 14s; animation-delay: 8s; font-size: 0.7rem; }
+.snowflake:nth-child(17) { left: 70%; animation-duration: 10s; animation-delay: 1s; font-size: 1rem; }
+.snowflake:nth-child(18) { left: 80%; animation-duration: 13s; animation-delay: 6.5s; font-size: 1.3rem; }
+.snowflake:nth-child(19) { left: 90%; animation-duration: 9s; animation-delay: 3s; font-size: 0.8rem; }
+.snowflake:nth-child(20) { left: 3%; animation-duration: 15s; animation-delay: 4s; font-size: 1.1rem; }
+
+/* Festive text styles */
+.text-festive-gradient {
+  background: linear-gradient(135deg, var(--santa-red), var(--santa-gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Christmas lights glow effect */
+.glow-red {
+  box-shadow: 0 0 20px rgba(196, 30, 58, 0.5), 0 0 40px rgba(196, 30, 58, 0.3);
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(22, 91, 51, 0.5), 0 0 40px rgba(22, 91, 51, 0.3);
+}
+
+.glow-gold {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for festive feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--santa-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--santa-red);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--santa-green);
+}
+
+/* Animation for floating elements */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse animation for CTAs */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(196, 30, 58, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(196, 30, 58, 0.6), 0 0 40px rgba(196, 30, 58, 0.4);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Twinkle effect for stars */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle 2s ease-in-out infinite;
+}
