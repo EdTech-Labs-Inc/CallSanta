@@ -67,6 +67,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
   } | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [expressReady, setExpressReady] = useState(false);
+  const [preparingPayment, setPreparingPayment] = useState(false);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -155,7 +156,9 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     if (!bookingResult) {
       return (
         <div className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg p-3">
-          Complete the form to see payment options.
+          {preparingPayment
+            ? 'Preparing Apple Pay / Google Pay options...'
+            : 'Complete the form to see payment options.'}
         </div>
       );
     }
@@ -224,7 +227,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
       if (currentStep !== 4 || bookingResult) return;
       const isValid = await form.trigger();
       if (!isValid) return;
-      setIsSubmitting(true);
+      setPreparingPayment(true);
       setWalletError(null);
       try {
         await submitBookingIfNeeded();
@@ -232,7 +235,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
         console.error('Booking preparation failed:', error);
         setWalletError(error instanceof Error ? error.message : 'Unable to prepare payment.');
       } finally {
-        setIsSubmitting(false);
+        setPreparingPayment(false);
       }
     };
 
