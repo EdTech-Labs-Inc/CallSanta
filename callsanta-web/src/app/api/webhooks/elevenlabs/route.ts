@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { CallStatus } from '@/types/database';
+import { CallStatus, Call } from '@/types/database';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { sendPostCallEmail } from '@/lib/email';
 
 /**
  * Verify HMAC signature from ElevenLabs webhook
@@ -189,6 +190,23 @@ async function handleTranscriptionWebhook(data: {
 
   console.log(`Transcription webhook processed for call ${call.id}`);
 
+  // If recording was NOT purchased, send post-call email now (no need to wait for audio)
+  // If recording WAS purchased, wait for audio webhook to send email
+  if (!call.recording_purchased && transcriptText) {
+    const updatedCall = { ...call, transcript: transcriptText, call_status: mappedStatus } as Call;
+    await sendPostCallEmail(updatedCall);
+    await supabaseAdmin
+      .from('calls')
+      .update({ transcript_sent_at: new Date().toISOString() })
+      .eq('id', call.id);
+    await supabaseAdmin.from('call_events').insert({
+      call_id: call.id,
+      event_type: 'post_call_email_sent',
+      event_data: { recording_purchased: false },
+    });
+    console.log(`Post-call email sent for call ${call.id} (no recording)`);
+  }
+
   return NextResponse.json({ received: true, callId: call.id, type: 'transcription' });
 }
 
@@ -262,6 +280,31 @@ async function handleAudioWebhook(data: {
   });
 
   console.log(`Audio saved for call ${call.id}: ${publicUrl}`);
+
+  // If recording was purchased, send post-call email now that we have the audio
+  // Only send if transcript_sent_at is null (email not already sent)
+  if (call.recording_purchased && !call.transcript_sent_at) {
+    // Re-fetch the call to get the latest transcript
+    const { data: updatedCall } = await supabaseAdmin
+      .from('calls')
+      .select('*')
+      .eq('id', call.id)
+      .single();
+
+    if (updatedCall && updatedCall.transcript) {
+      await sendPostCallEmail(updatedCall as Call);
+      await supabaseAdmin
+        .from('calls')
+        .update({ transcript_sent_at: new Date().toISOString() })
+        .eq('id', call.id);
+      await supabaseAdmin.from('call_events').insert({
+        call_id: call.id,
+        event_type: 'post_call_email_sent',
+        event_data: { recording_purchased: true },
+      });
+      console.log(`Post-call email sent for call ${call.id} (with recording)`);
+    }
+  }
 
   return NextResponse.json({ received: true, callId: call.id, type: 'audio' });
 }

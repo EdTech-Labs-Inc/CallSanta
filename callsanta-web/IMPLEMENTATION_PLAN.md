@@ -1135,14 +1135,14 @@ Create `vercel.json`:
 ```
 
 ### Acceptance Criteria
-- [ ] ElevenLabs agent configured in dashboard
-- [ ] Twilio linked in ElevenLabs dashboard
-- [ ] Cron job triggers scheduled calls
-- [ ] Calls initiate successfully via ElevenLabs API
-- [ ] Webhook receives call status updates
-- [ ] Recordings saved to Supabase Storage
-- [ ] Transcripts stored in database
-- [ ] End-to-end test call works
+- [✅] ElevenLabs agent configured in dashboard
+- [✅] Twilio linked in ElevenLabs dashboard
+- [✅] Cron job triggers scheduled calls
+- [✅] Calls initiate successfully via ElevenLabs API
+- [✅] Webhook receives call status updates
+- [✅] Recordings saved to Supabase Storage
+- [✅] Transcripts stored in database
+- [✅] End-to-end test call works
 
 ---
 

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { constructWebhookEvent } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import {
+  sendBookingConfirmationEmail,
+  sendRecordingPurchaseConfirmationEmail,
+} from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -81,6 +85,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       session_id: session.id,
       amount: session.amount_total,
     });
+
+    // Fetch the call to send confirmation email
+    const { data: call } = await supabaseAdmin
+      .from('calls')
+      .select('*')
+      .eq('id', callId)
+      .single();
+
+    if (call) {
+      await sendRecordingPurchaseConfirmationEmail(call);
+      await logCallEvent(callId, 'recording_purchase_email_sent', {});
+    }
   } else {
     // Initial call booking payment
     const includeRecording = session.metadata?.include_recording === 'true';
@@ -106,6 +122,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       amount: session.amount_total,
       include_recording: includeRecording,
     });
+
+    // Fetch the call to send confirmation email
+    const { data: call } = await supabaseAdmin
+      .from('calls')
+      .select('*')
+      .eq('id', callId)
+      .single();
+
+    if (call) {
+      await sendBookingConfirmationEmail(call);
+      await logCallEvent(callId, 'booking_confirmation_email_sent', {});
+    }
   }
 
   console.log(`Checkout completed for call ${callId}`);
