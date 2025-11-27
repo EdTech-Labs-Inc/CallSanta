@@ -64,7 +64,7 @@ export function DateTimePicker({
     setCallNow(newCallNow);
 
     if (newCallNow) {
-      const now = addMinutes(new Date(), 2);
+      const now = new Date();
       onChange(now.toISOString());
       setLocalError(null);
       setDesktopDate('');
