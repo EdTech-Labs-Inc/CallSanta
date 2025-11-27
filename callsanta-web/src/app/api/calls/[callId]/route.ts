@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const { data: call, error } = await supabaseAdmin
     .from('calls')
-    .select('id, child_name, scheduled_at, payment_status, call_status, recording_purchased')
+    .select('id, child_name, scheduled_at, payment_status, call_status, recording_purchased, parent_email')
     .eq('id', callId)
     .single();
 

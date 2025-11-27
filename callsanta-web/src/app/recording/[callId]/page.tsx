@@ -82,58 +82,55 @@ export default async function RecordingDownloadPage({ params, searchParams }: Pa
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#c41e3a]">
       <Snowfall />
-      <section className="relative min-h-screen festive-gradient overflow-hidden">
-        {/* Stars background */}
-        <div className="absolute inset-0 overflow-hidden">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 bg-white rounded-full animate-twinkle"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-              }}
-            />
-          ))}
-        </div>
 
-        <div className="relative max-w-2xl mx-auto px-4 py-16 md:py-24">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 text-center">
+      <section className="relative min-h-screen overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#c41e3a] via-[#b01a33] to-[#8d142a]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.12)_0%,_transparent_55%)]" />
+
+        <div className="relative max-w-3xl mx-auto px-4 py-16 md:py-24">
+          {/* Recording Card */}
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-[#d4a849] p-8 md:p-12 text-center relative">
+            {/* Top badge */}
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+              <div className="bg-[#d4a849] text-white px-6 py-2 rounded-full font-bold text-xs tracking-wide shadow-lg whitespace-nowrap uppercase">
+                {hasRecording ? "Recording Ready" : "Processing"}
+              </div>
+            </div>
+
             {/* Success message if just purchased */}
             {justPurchased && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-center gap-2">
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-center gap-2 mt-2">
                 <CheckCircleIcon className="w-5 h-5 text-green-600" />
                 <span className="text-green-800 font-medium">Purchase successful!</span>
               </div>
             )}
 
             {/* Icon */}
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-santa-green/10 rounded-full mb-6">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-[#c41e3a]/10 rounded-full mb-6 border border-[#d4a849]/60">
               {hasRecording ? (
-                <PlayIcon className="w-12 h-12 text-santa-green" />
+                <PlayIcon className="w-12 h-12 text-[#c41e3a]" />
               ) : (
-                <LockIcon className="w-12 h-12 text-gray-400" />
+                <LockIcon className="w-12 h-12 text-[#c41e3a]/50" />
               )}
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-[#c41e3a] mb-4">
               {hasRecording ? "Your Recording is Ready!" : "Recording Processing"}
             </h1>
 
-            <p className="text-lg text-gray-600 mb-8">
+            <p className="text-lg text-[#c41e3a]/80 mb-8">
               {hasRecording ? (
                 <>
                   Santa&apos;s magical call with{" "}
-                  <span className="font-semibold text-santa-red">{call.child_name}</span> is ready to download.
+                  <span className="font-semibold text-[#c41e3a]">{call.child_name}</span> is ready to download.
                 </>
               ) : (
                 <>
                   We&apos;re preparing Santa&apos;s call with{" "}
-                  <span className="font-semibold text-santa-red">{call.child_name}</span>.
+                  <span className="font-semibold text-[#c41e3a]">{call.child_name}</span>.
                   This usually takes just a few minutes.
                 </>
               )}
@@ -141,8 +138,8 @@ export default async function RecordingDownloadPage({ params, searchParams }: Pa
 
             {/* Audio Player (if recording available) */}
             {hasRecording && downloadUrl && (
-              <div className="bg-gray-50 rounded-xl p-6 mb-8">
-                <p className="text-sm text-gray-500 mb-4">Preview</p>
+              <div className="bg-white rounded-2xl p-6 mb-8 border border-[#d4a849]/40 shadow-sm">
+                <p className="text-sm text-[#c41e3a]/60 mb-4">Preview</p>
                 <audio
                   controls
                   className="w-full"
@@ -155,8 +152,8 @@ export default async function RecordingDownloadPage({ params, searchParams }: Pa
             )}
 
             {/* Call Details */}
-            <div className="bg-gray-50 rounded-xl p-6 mb-8 text-left">
-              <h2 className="font-display text-lg font-semibold text-gray-900 mb-4">
+            <div className="bg-white rounded-2xl p-6 mb-8 text-left border border-[#d4a849]/40 shadow-sm">
+              <h2 className="font-display text-lg font-semibold text-[#c41e3a] mb-4">
                 Call Details
               </h2>
               <div className="space-y-2 text-sm">
@@ -190,7 +187,7 @@ export default async function RecordingDownloadPage({ params, searchParams }: Pa
               <a
                 href={downloadUrl}
                 download={`santa-call-${call.child_name.toLowerCase().replace(/\s+/g, "-")}.mp3`}
-                className="inline-flex items-center justify-center gap-2 w-full bg-santa-green hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg transition-colors text-lg"
+                className="inline-flex items-center justify-center gap-2 w-full bg-[#c41e3a] hover:bg-[#a01830] text-white font-bold py-4 px-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl border-2 border-[#d4a849]"
               >
                 <DownloadIcon className="w-5 h-5" />
                 Download Recording
@@ -198,7 +195,7 @@ export default async function RecordingDownloadPage({ params, searchParams }: Pa
             ) : (
               <button
                 disabled
-                className="inline-flex items-center justify-center gap-2 w-full bg-gray-300 text-gray-500 font-semibold py-4 px-6 rounded-lg cursor-not-allowed text-lg"
+                className="inline-flex items-center justify-center gap-2 w-full bg-gray-300 text-gray-500 font-semibold py-4 px-6 rounded-full cursor-not-allowed"
               >
                 <DownloadIcon className="w-5 h-5" />
                 Download Not Available Yet
@@ -211,17 +208,18 @@ export default async function RecordingDownloadPage({ params, searchParams }: Pa
                 : "Please check back in a few minutes. We'll also email you when it's ready."}
             </p>
 
-            <hr className="my-8 border-gray-200" />
+            <hr className="my-8 border-[#d4a849]/30" />
 
             <Link
               href="/"
-              className="text-santa-red hover:underline font-medium"
+              className="inline-block w-full border-2 border-[#d4a849]/60 hover:border-[#d4a849] text-[#c41e3a] font-semibold py-3 px-6 rounded-full transition-all duration-300 bg-white"
             >
               Book Another Call
             </Link>
           </div>
         </div>
       </section>
+
       <Footer />
     </div>
   );

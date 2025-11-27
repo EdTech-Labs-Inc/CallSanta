@@ -181,6 +181,20 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     include_recording: includeRecording,
     type: paymentIntent.metadata?.type,
   });
+
+  // Send confirmation email for recording purchases via Express Checkout
+  if (isRecordingPurchase) {
+    const { data: call } = await supabaseAdmin
+      .from('calls')
+      .select('*')
+      .eq('id', callId)
+      .single();
+
+    if (call) {
+      await sendRecordingPurchaseConfirmationEmail(call);
+      await logCallEvent(callId, 'recording_purchase_email_sent', {});
+    }
+  }
 }
 
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
