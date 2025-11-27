@@ -49,14 +49,14 @@ src/
 │       │   └── route.ts
 │       ├── upload-voice/
 │       │   └── route.ts
-│       └── webhooks/
-│           ├── stripe/
-│           │   └── route.ts
-│           └── twilio/
-│               ├── status/
-│               │   └── route.ts
-│               └── recording/
-│                   └── route.ts
+│       ├── webhooks/
+│       │   ├── stripe/
+│       │   │   └── route.ts
+│       │   └── elevenlabs/
+│       │       └── route.ts
+│       └── cron/
+│           └── schedule-calls/
+│               └── route.ts
 ├── components/
 │   ├── ui/                   # Reusable UI components
 │   ├── forms/                # Form components
@@ -67,8 +67,7 @@ src/
 │   │   ├── server.ts         # Server client
 │   │   └── admin.ts          # Service role client
 │   ├── stripe.ts
-│   ├── twilio.ts
-│   ├── elevenlabs.ts
+│   ├── elevenlabs.ts          # Outbound calls + transcription
 │   └── utils.ts
 ├── types/
 │   └── index.ts              # TypeScript types
@@ -92,14 +91,13 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 STRIPE_CALL_PRICE_ID=
 STRIPE_RECORDING_PRICE_ID=
 
-# Twilio
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-
-# ElevenLabs
+# ElevenLabs (Twilio is linked via ElevenLabs dashboard)
 ELEVENLABS_API_KEY=
 ELEVENLABS_AGENT_ID=
+ELEVENLABS_AGENT_PHONE_NUMBER_ID=
+
+# Cron
+CRON_SECRET=
 
 # Email
 RESEND_API_KEY=
@@ -865,141 +863,265 @@ Create `src/app/cancelled/page.tsx`:
 
 ---
 
-## Phase 7: Twilio + ElevenLabs Integration
+## Phase 7: ElevenLabs Conversational AI Integration
 
-**Goal:** Set up the actual phone call functionality.
+**Goal:** Set up phone call functionality using ElevenLabs Conversational AI with native Twilio integration.
+
+> **Architecture:** ElevenLabs handles the entire call flow (connects to Twilio internally). We just trigger calls via their API and receive webhooks when calls complete.
+
+### Prerequisites (One-time Dashboard Setup)
+
+1. **Create ElevenLabs Conversational AI Agent**
+   - Go to ElevenLabs dashboard → Agents
+   - Create new agent with Santa voice
+   - Configure system prompt with dynamic variables (see below)
+   - Note the `agent_id`
+
+2. **Link Twilio in ElevenLabs Dashboard**
+   - Go to Agent settings → Phone Numbers
+   - Add Twilio Account SID + Auth Token
+   - Import or purchase a phone number
+   - Note the `agent_phone_number_id`
+
+3. **Configure Agent System Prompt**
+```
+You are Santa Claus making a phone call to a child named {{child_name}}.
+You are warm, jolly, and magical. Use "Ho ho ho!" naturally in conversation.
+{{child_name}} is {{child_age}} years old.
+
+Gift budget guidance: {{gift_budget}}
+
+The parent has told you about {{child_name}}: {{child_info}}
+Additional voice note info: {{voice_info}}
+
+Keep the call under 3 minutes. End warmly by reminding them to be good and go to bed early on Christmas Eve.
+Start by asking "Ho ho ho! Is this {{child_name}}?"
+```
 
 ### Tasks
 
-1. **Install Twilio SDK**
-```bash
-npm install twilio
+1. **Environment Variables**
+
+Add to `.env.local`:
+```env
+# ElevenLabs (existing key, new agent IDs)
+ELEVENLABS_API_KEY=xxx
+ELEVENLABS_AGENT_ID=xxx
+ELEVENLABS_AGENT_PHONE_NUMBER_ID=xxx
+
+# Cron security
+CRON_SECRET=xxx
 ```
 
-2. **Twilio Client**
+2. **ElevenLabs Client**
 
-Create `src/lib/twilio.ts`:
+Update `src/lib/elevenlabs.ts`:
 ```typescript
-import twilio from 'twilio';
-
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID!,
-  process.env.TWILIO_AUTH_TOKEN!
-);
+// Keep existing transcription code, add:
 
 export async function initiateCall(
-  phoneNumber: string,
-  callId: string
+  toNumber: string,
+  callData: {
+    childName: string;
+    childAge: number;
+    giftBudget: string;
+    childInfoText?: string;
+    childInfoVoiceTranscript?: string;
+  }
 ) {
-  const call = await client.calls.create({
-    to: phoneNumber,
-    from: process.env.TWILIO_PHONE_NUMBER!,
-    url: `${process.env.NEXT_PUBLIC_APP_URL}/api/twilio/voice/${callId}`,
-    statusCallback: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twilio/status`,
-    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-    record: true,
-    recordingStatusCallback: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twilio/recording`,
+  const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': process.env.ELEVENLABS_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      agent_id: process.env.ELEVENLABS_AGENT_ID!,
+      agent_phone_number_id: process.env.ELEVENLABS_AGENT_PHONE_NUMBER_ID!,
+      to_number: toNumber,
+      conversation_initiation_client_data: {
+        dynamic_variables: {
+          child_name: callData.childName,
+          child_age: callData.childAge.toString(),
+          gift_budget: callData.giftBudget,
+          child_info: callData.childInfoText || '',
+          voice_info: callData.childInfoVoiceTranscript || '',
+        },
+      },
+    }),
   });
-  
-  return call.sid;
-}
-```
 
-3. **ElevenLabs Client**
+  if (!response.ok) {
+    throw new Error(`ElevenLabs call failed: ${response.statusText}`);
+  }
 
-Create `src/lib/elevenlabs.ts`:
-```typescript
-const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
-
-export function buildSantaPrompt(call: any) {
-  const budgetInstructions = {
-    low: "If the child asks for expensive gifts, gently suggest that Santa's elves are quite busy and maybe something smaller would be just as magical.",
-    medium: "Most reasonable gift requests are fine. For very expensive items, suggest Santa will see what he can do.",
-    high: "Be generous with gift promises but stay realistic.",
-    unlimited: "Any gift request is acceptable to promise.",
+  const data = await response.json();
+  return {
+    conversationId: data.conversation_id,
+    callSid: data.callSid,
+    success: data.success,
   };
-  
-  let prompt = `You are Santa Claus making a phone call to a child named ${call.child_name}. 
-You are warm, jolly, and magical. Use "Ho ho ho!" naturally in conversation.
-${call.child_name} is ${call.child_age} years old.
+}
 
-${budgetInstructions[call.gift_budget]}
+export async function getConversation(conversationId: string) {
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
+    {
+      headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY! },
+    }
+  );
+  return response.json();
+}
 
-`;
-
-  if (call.child_info_text) {
-    prompt += `\nThe parent has told you about ${call.child_name}: ${call.child_info_text}\n`;
-  }
-  
-  if (call.child_info_voice_transcript) {
-    prompt += `\nAdditional info: ${call.child_info_voice_transcript}\n`;
-  }
-  
-  prompt += `
-Keep the call under 3 minutes. End warmly by reminding them to be good and go to bed early on Christmas Eve.
-Start by asking "Ho ho ho! Is this ${call.child_name}?"`;
-
-  return prompt;
+export async function getConversationAudio(conversationId: string) {
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`,
+    {
+      headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY! },
+    }
+  );
+  return response.arrayBuffer();
 }
 ```
 
-4. **TwiML Voice Handler**
-
-Create `src/app/api/twilio/voice/[callId]/route.ts`:
-- Generate TwiML to connect to ElevenLabs
-- Use `<Stream>` or `<Connect>` for audio
-
-5. **Twilio Status Webhook**
-
-Create `src/app/api/webhooks/twilio/status/route.ts`:
-```typescript
-export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const callSid = formData.get('CallSid') as string;
-  const callStatus = formData.get('CallStatus') as string;
-  
-  // Update call status in database
-  // Map Twilio status to our status enum
-  
-  return NextResponse.json({ received: true });
-}
-```
-
-6. **Recording Webhook**
-
-Create `src/app/api/webhooks/twilio/recording/route.ts`:
-- Download recording from Twilio
-- Upload to Supabase Storage
-- Trigger transcript generation
-
-7. **Call Scheduler (Cron Job)**
+3. **Call Scheduler (Cron Job)**
 
 Create `src/app/api/cron/schedule-calls/route.ts`:
 ```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { initiateCall } from '@/lib/elevenlabs';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+
 export async function GET(request: NextRequest) {
   // Verify cron secret
-  
-  // Find calls ready to be made
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Find calls ready to be made (within next minute)
   const { data: calls } = await supabaseAdmin
     .from('calls')
     .select('*')
     .eq('call_status', 'scheduled')
     .eq('payment_status', 'paid')
     .lte('scheduled_at', new Date(Date.now() + 60000).toISOString());
-  
+
+  const results = [];
   for (const call of calls || []) {
-    await initiateCall(call.phone_number, call.id);
-    await supabaseAdmin
-      .from('calls')
-      .update({ call_status: 'queued' })
-      .eq('id', call.id);
+    try {
+      const result = await initiateCall(call.phone_number, {
+        childName: call.child_name,
+        childAge: call.child_age,
+        giftBudget: call.gift_budget,
+        childInfoText: call.child_info_text,
+        childInfoVoiceTranscript: call.child_info_voice_transcript,
+      });
+
+      await supabaseAdmin
+        .from('calls')
+        .update({
+          call_status: 'queued',
+          twilio_call_sid: result.callSid,
+          elevenlabs_conversation_id: result.conversationId,
+        })
+        .eq('id', call.id);
+
+      await supabaseAdmin.from('call_events').insert({
+        call_id: call.id,
+        event_type: 'call_initiated',
+        event_data: result,
+      });
+
+      results.push({ callId: call.id, success: true });
+    } catch (error) {
+      console.error(`Failed to initiate call ${call.id}:`, error);
+      results.push({ callId: call.id, success: false, error: String(error) });
+    }
   }
-  
-  return NextResponse.json({ processed: calls?.length || 0 });
+
+  return NextResponse.json({ processed: results.length, results });
 }
 ```
 
-Set up in `vercel.json`:
+4. **ElevenLabs Webhook**
+
+Create `src/app/api/webhooks/elevenlabs/route.ts`:
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getConversation, getConversationAudio } from '@/lib/elevenlabs';
+
+export async function POST(request: NextRequest) {
+  const payload = await request.json();
+  const { conversation_id, status } = payload;
+
+  // Find call by conversation ID
+  const { data: call } = await supabaseAdmin
+    .from('calls')
+    .select('*')
+    .eq('elevenlabs_conversation_id', conversation_id)
+    .single();
+
+  if (!call) {
+    return NextResponse.json({ error: 'Call not found' }, { status: 404 });
+  }
+
+  // Map ElevenLabs status to our status
+  const statusMap: Record<string, string> = {
+    'in_progress': 'in_progress',
+    'completed': 'completed',
+    'failed': 'failed',
+  };
+
+  const updates: Record<string, any> = {
+    call_status: statusMap[status] || call.call_status,
+  };
+
+  // If completed, fetch transcript and recording
+  if (status === 'completed') {
+    const conversation = await getConversation(conversation_id);
+
+    updates.call_ended_at = new Date().toISOString();
+    updates.transcript = conversation.transcript;
+    updates.call_duration_seconds = conversation.duration_seconds;
+
+    // Download and store recording in Supabase
+    const audioBuffer = await getConversationAudio(conversation_id);
+    const fileName = `${call.id}.mp3`;
+
+    await supabaseAdmin.storage
+      .from('call-recordings')
+      .upload(fileName, audioBuffer, {
+        contentType: 'audio/mpeg',
+        upsert: true,
+      });
+
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('call-recordings')
+      .getPublicUrl(fileName);
+
+    updates.recording_url = publicUrl;
+  }
+
+  await supabaseAdmin
+    .from('calls')
+    .update(updates)
+    .eq('id', call.id);
+
+  await supabaseAdmin.from('call_events').insert({
+    call_id: call.id,
+    event_type: `elevenlabs_${status}`,
+    event_data: payload,
+  });
+
+  return NextResponse.json({ received: true });
+}
+```
+
+5. **Vercel Cron Config**
+
+Create `vercel.json`:
 ```json
 {
   "crons": [
@@ -1012,11 +1134,13 @@ Set up in `vercel.json`:
 ```
 
 ### Acceptance Criteria
-- [ ] Twilio can initiate calls
-- [ ] ElevenLabs integration works
-- [ ] Call recordings are saved
-- [ ] Status updates work correctly
+- [ ] ElevenLabs agent configured in dashboard
+- [ ] Twilio linked in ElevenLabs dashboard
 - [ ] Cron job triggers scheduled calls
+- [ ] Calls initiate successfully via ElevenLabs API
+- [ ] Webhook receives call status updates
+- [ ] Recordings saved to Supabase Storage
+- [ ] Transcripts stored in database
 - [ ] End-to-end test call works
 
 ---
@@ -1237,8 +1361,12 @@ supabase db push
 # Stripe webhook testing (local)
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
-# Twilio webhook testing (use ngrok)
+# ElevenLabs webhook testing (use ngrok for local dev)
 ngrok http 3000
+# Then set webhook URL in ElevenLabs dashboard: https://<ngrok-url>/api/webhooks/elevenlabs
+
+# Manually trigger cron (local testing)
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/schedule-calls
 ```
 
 ### Key Files
@@ -1249,9 +1377,10 @@ ngrok http 3000
 | `src/app/book/page.tsx` | Booking wizard |
 | `src/app/api/calls/route.ts` | Create call API |
 | `src/app/api/webhooks/stripe/route.ts` | Stripe webhook |
+| `src/app/api/webhooks/elevenlabs/route.ts` | ElevenLabs call status webhook |
+| `src/app/api/cron/schedule-calls/route.ts` | Cron job to trigger calls |
 | `src/lib/stripe.ts` | Stripe utilities |
-| `src/lib/twilio.ts` | Twilio utilities |
-| `src/lib/elevenlabs.ts` | ElevenLabs utilities |
+| `src/lib/elevenlabs.ts` | ElevenLabs calls + transcription |
 
 ### External Dashboards
 
