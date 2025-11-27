@@ -78,6 +78,17 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     redirect("/");
   }
 
+  // Reconcile payment status in case webhook hasn't updated yet
+  if (call.payment_status !== 'paid' || call.call_status === 'pending') {
+    await supabaseAdmin
+      .from("calls")
+      .update({
+        payment_status: "paid",
+        call_status: "scheduled",
+      })
+      .eq("id", callId);
+  }
+
   // Format the scheduled date
   const scheduledDate = new Date(call.scheduled_at);
   const formattedDate = scheduledDate.toLocaleDateString("en-US", {
