@@ -39,13 +39,22 @@ export function PhoneInput({
   onBlur,
   className,
 }: PhoneInputProps) {
-  // Use a stable default for SSR, then update on the client to avoid hydration mismatch.
-  const [autoCountry, setAutoCountry] = useState<Country>('US');
+  // Track selected country explicitly so it doesn't disappear on re-renders/collapse.
+  const [country, setCountry] = useState<Country | undefined>(defaultCountry ?? 'US');
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
-    setAutoCountry(detectBrowserCountry());
+    // Only set detected country if no explicit default already provided/selected
+    const detected = detectBrowserCountry();
+    setCountry((prev) => prev ?? detected);
   }, []);
+
+  // Respect updates to defaultCountry prop (if provided)
+  useEffect(() => {
+    if (defaultCountry) {
+      setCountry(defaultCountry);
+    }
+  }, [defaultCountry]);
 
   const countriesList = useMemo<Country[]>(() => {
     const all = getCountries();
@@ -65,7 +74,9 @@ export function PhoneInput({
         international
         withCountryCallingCode
         countryCallingCodeEditable={false}
-        defaultCountry={defaultCountry ?? autoCountry}
+        defaultCountry={country}
+        country={country}
+        onCountryChange={setCountry}
         countries={countriesList}
         value={value}
         onChange={onChange}
