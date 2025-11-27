@@ -247,8 +247,8 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
   return (
     <div className="space-y-8 text-base sm:text-lg">
       <div className="space-y-3 px-0 sm:px-0">
-        <h2 className="text-3xl sm:text-4xl font-semibold text-gray-900">Schedule &amp; Pay</h2>
-        <p className="text-base sm:text-lg text-gray-600">
+        <h2 className="text-3xl sm:text-4xl font-semibold text-white">Schedule &amp; Pay</h2>
+        <p className="text-base sm:text-lg text-white/80">
           Give Santa some details so he knows when and who to call.
         </p>
       </div>
