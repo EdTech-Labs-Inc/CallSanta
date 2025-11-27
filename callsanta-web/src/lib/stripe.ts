@@ -89,6 +89,40 @@ export async function createRecordingPaymentLink(callId: string): Promise<string
 }
 
 /**
+ * Creates a Stripe checkout session for post-call recording purchase
+ */
+export async function createRecordingCheckoutSession(
+  callId: string,
+  customerEmail: string
+): Promise<{ sessionId: string; url: string }> {
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [
+      {
+        price: process.env.STRIPE_RECORDING_PRICE_ID!,
+        quantity: 1,
+      },
+    ],
+    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/recording/${callId}?purchased=true`,
+    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/recording/${callId}/purchase`,
+    customer_email: customerEmail,
+    metadata: {
+      call_id: callId,
+      type: 'recording_purchase',
+    },
+  });
+
+  if (!session.url) {
+    throw new Error('Failed to create checkout session URL');
+  }
+
+  return {
+    sessionId: session.id,
+    url: session.url,
+  };
+}
+
+/**
  * Retrieves a checkout session by ID
  */
 export async function getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
