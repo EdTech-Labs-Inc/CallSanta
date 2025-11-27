@@ -1,6 +1,6 @@
 import { Call } from '@/types/database';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://callsanta.com';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.santasnumber.com';
 
 // Shared styles
 const styles = {
