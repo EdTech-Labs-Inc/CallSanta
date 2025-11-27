@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCheckoutSession } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Snowfall, Footer } from "@/components/layout";
+import { ClearFormStorage } from "./ClearFormStorage";
 
 function CheckCircleIcon({ className }: { className?: string }) {
   return (
@@ -108,6 +109,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-[#c41e3a]">
+      <ClearFormStorage />
       <Snowfall />
 
       <section className="relative min-h-screen overflow-hidden">

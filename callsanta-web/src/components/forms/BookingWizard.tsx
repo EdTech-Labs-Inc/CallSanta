@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BookingFormData, bookingSchema } from '@/lib/schemas/booking';
@@ -17,6 +17,7 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
+import { loadFormData, saveFormData } from '@/lib/hooks/useFormPersistence';
 
 type BookingResult = {
   callId: string;
@@ -69,8 +70,48 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     },
   });
 
-  const { control, handleSubmit, formState: { errors, touchedFields }, setValue, watch, trigger, getValues } = form;
+  const { control, handleSubmit, formState: { errors, touchedFields }, setValue, watch, trigger, getValues, reset } = form;
   const watchedValues = watch();
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedRef = useRef(false);
+
+  // Load saved form data on mount
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
+    const saved = loadFormData();
+    if (saved) {
+      reset({
+        childName: saved.childName ?? '',
+        childAge: saved.childAge,
+        childInfoText: saved.childInfoText ?? '',
+        phoneNumber: saved.phoneNumber ?? '',
+        phoneCountryCode: saved.phoneCountryCode ?? '',
+        scheduledAt: saved.scheduledAt ?? '',
+        timezone: saved.timezone ?? '',
+        parentEmail: saved.parentEmail ?? '',
+        purchaseRecording: saved.purchaseRecording ?? false,
+      });
+    }
+  }, [reset]);
+
+  // Save form data on changes (debounced)
+  useEffect(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveFormData(watchedValues);
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [watchedValues]);
   const contactReady = useMemo(
     () => Boolean(
       watchedValues.childName &&
