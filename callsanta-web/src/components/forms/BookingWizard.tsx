@@ -300,28 +300,24 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                   <Controller
                     name="childAge"
                     control={control}
-                    render={({ field }) => (
-                      <div className="w-full">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Age
-                        </label>
-                        <select
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent border-gray-300 bg-white text-base sm:text-lg"
-                          onBlur={tryAutoCollapseContact}
-                        >
-                          <option value="">Select age</option>
-                          {Array.from({ length: 18 }, (_, i) => i + 1).map((age) => (
-                            <option key={age} value={age}>{age} years old</option>
-                          ))}
-                        </select>
-                        {errors.childAge && (
-                          <p className="mt-1 text-sm text-red-500">{errors.childAge.message}</p>
-                        )}
-                      </div>
-                    )}
-                  />
+                  render={({ field }) => (
+                    <Input
+                      type="number"
+                      label="Age"
+                      placeholder="Enter age"
+                      min={1}
+                      max={18}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      onBlur={(e) => {
+                        field.onBlur();
+                        void tryAutoCollapseContact();
+                      }}
+                      error={errors.childAge?.message}
+                      className="w-full text-base sm:text-lg"
+                    />
+                  )}
+                />
                 </div>
 
                 <Controller
