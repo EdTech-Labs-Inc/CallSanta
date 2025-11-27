@@ -3,7 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sant is calling!",
+  title: "Santa is calling!",
   description: "Our real santa will call a number, ask your child or friend about their wishlist and then email it to you!",
 };
 
