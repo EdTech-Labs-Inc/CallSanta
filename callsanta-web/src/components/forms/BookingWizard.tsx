@@ -71,6 +71,15 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
 
   const { control, handleSubmit, formState: { errors, touchedFields }, setValue, watch, trigger, getValues } = form;
   const watchedValues = watch();
+  const contactReady = useMemo(
+    () => Boolean(
+      watchedValues.childName &&
+      watchedValues.childAge &&
+      watchedValues.phoneNumber &&
+      watchedValues.parentEmail
+    ),
+    [watchedValues.childAge, watchedValues.childName, watchedValues.parentEmail, watchedValues.phoneNumber]
+  );
 
   const preparePayment = useCallback(async (values: BookingFormData) => {
     setIsSubmitting(true);
@@ -235,11 +244,6 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     watchedValues.timezone,
   ]);
 
-  // Fallback: if required fields become valid at any point, trigger PI (notes are ignored)
-  useEffect(() => {
-    void tryPreparePayment();
-  }, [tryPreparePayment]);
-
   return (
     <div className="space-y-8 text-base sm:text-lg">
       <div className="space-y-3 px-0 sm:px-0">
@@ -306,14 +310,17 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                       label="Age"
                       placeholder="Enter age"
                       min={1}
-                      max={18}
                       value={field.value ?? ''}
                       onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                       onBlur={(e) => {
                         field.onBlur();
                         void tryAutoCollapseContact();
                       }}
-                      error={errors.childAge?.message}
+                      error={
+                        (!field.value && touchedFields.childAge)
+                          ? 'Age helps Santa tailor the call (optional)'
+                          : errors.childAge?.message
+                      }
                       className="w-full text-base sm:text-lg"
                     />
                   )}
@@ -403,11 +410,17 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
                         error={errors.scheduledAt?.message}
                         onConfirm={() => markSectionDone('time')}
                         confirmLabel="Confirm"
+                        disabled={!contactReady}
                       />
                     )}
                   />
                 )}
               />
+            )}
+            {!contactReady && (
+              <p className="text-sm text-red-500">
+                Complete contact details before selecting a time.
+              </p>
             )}
           </div>
 

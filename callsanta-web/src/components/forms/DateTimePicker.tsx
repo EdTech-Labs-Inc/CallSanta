@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { addDays, addMinutes, isAfter, isBefore, setHours, setMinutes } from "date-fns";
 import { Zap, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 interface DateTimePickerProps {
   value: string; // ISO string
@@ -13,6 +14,7 @@ interface DateTimePickerProps {
   error?: string;
   onConfirm?: () => void;
   confirmLabel?: string;
+  disabled?: boolean;
 }
 
 export function DateTimePicker({
@@ -23,6 +25,7 @@ export function DateTimePicker({
   error,
   onConfirm,
   confirmLabel,
+  disabled = false,
 }: DateTimePickerProps) {
   const [callNow, setCallNow] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -149,7 +152,7 @@ export function DateTimePicker({
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className={cn("w-full space-y-4", disabled && "opacity-60 pointer-events-none select-none")}>
       {label && (
         <div className="flex items-center justify-between">
           <label className="block text-sm font-medium text-gray-800">

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const bookingSchema = z.object({
   childName: z.string().min(1, 'Name is required').max(100),
-  childAge: z.number().min(1).max(18),
+  childAge: z.number().min(1),
   childInfoText: z.string().max(2000).optional(),
   phoneNumber: z.string().min(10, 'Valid phone number required'),
   phoneCountryCode: z.string().min(2).max(5),
