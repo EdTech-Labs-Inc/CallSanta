@@ -59,7 +59,7 @@ function baseLayout(content: string): string {
         &copy; ${new Date().getFullYear()} Call Santa. Spreading Christmas magic!
       </p>
       <p style="${styles.footerText}; margin-top: 10px;">
-        Questions? Contact us at <a href="mailto:support@callsanta.com" style="color: #C41E3A;">support@callsanta.com</a>
+        Questions? Contact us at <a href="mailto:questions@santasnumber.com" style="color: #C41E3A;">questions@santasnumber.com</a>
       </p>
     </div>
   </div>

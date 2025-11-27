@@ -105,7 +105,7 @@ export default function CancelledPage() {
             <p className="text-sm text-gray-500 mt-6">
               Having trouble?{" "}
               <a
-                href="mailto:support@callsanta.com"
+                href="mailto:questions@santasnumber.com"
                 className="text-[#c41e3a] hover:underline"
               >
                 Contact our support team
