@@ -33,20 +33,16 @@ interface DiscordMessage {
 
 /**
  * Mask phone number for privacy - shows only country code and last 3 digits
- * Example: +1 234 567 8901 -> +1 ***-***-901
+ * Example: +1, 234 567 8901 -> +1 ***-***-901
  */
-function maskPhoneNumber(phone: string): string {
-  // Remove all non-digit characters except leading +
-  const hasPlus = phone.startsWith('+');
+function maskPhoneNumber(phone: string, countryCode: string): string {
+  // Get just the digits from the phone number
   const digits = phone.replace(/\D/g, '');
 
-  if (digits.length < 4) {
-    return '***';
+  if (digits.length < 3) {
+    return `${countryCode} ***`;
   }
 
-  // Get country code (1-3 digits) and last 3 digits
-  // Assume 1-digit country code for now (US/Canada), can be adjusted
-  const countryCode = hasPlus ? `+${digits.slice(0, 1)}` : digits.slice(0, 1);
   const lastThree = digits.slice(-3);
 
   return `${countryCode} ***-***-${lastThree}`;
@@ -131,7 +127,7 @@ export async function sendPaymentNotification(call: Call): Promise<DiscordResult
     return { success: false, error: 'DISCORD_SOMEONE_PAID_CHANNEL not configured' };
   }
 
-  const maskedPhone = maskPhoneNumber(call.phone_number);
+  const maskedPhone = maskPhoneNumber(call.phone_number, call.phone_country_code);
   const formattedTime = formatScheduledTime(call.scheduled_at, call.timezone);
   const callType = call.call_now ? 'Immediate Call' : 'Scheduled Call';
   const callTypeEmoji = call.call_now ? '\uD83D\uDCDE' : '\uD83D\uDCC5';
