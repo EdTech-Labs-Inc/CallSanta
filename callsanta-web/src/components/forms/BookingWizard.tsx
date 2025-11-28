@@ -84,13 +84,22 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
 
     const saved = loadFormData();
     if (saved) {
+      // Check if cached scheduledAt is in the past - if so, clear it
+      let scheduledAt = saved.scheduledAt ?? '';
+      if (scheduledAt) {
+        const scheduledTime = new Date(scheduledAt);
+        if (scheduledTime < new Date()) {
+          scheduledAt = '';  // Clear past times, user must re-select
+        }
+      }
+
       reset({
         childName: saved.childName ?? '',
         childAge: saved.childAge,
         childInfoText: saved.childInfoText ?? '',
         phoneNumber: saved.phoneNumber ?? '',
         phoneCountryCode: saved.phoneCountryCode ?? '',
-        scheduledAt: saved.scheduledAt ?? '',
+        scheduledAt,
         timezone: saved.timezone ?? '',
         parentEmail: saved.parentEmail ?? '',
         purchaseRecording: saved.purchaseRecording ?? false,
