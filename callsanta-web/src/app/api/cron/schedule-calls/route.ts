@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       .eq('call_status', 'scheduled')
       .eq('payment_status', 'paid')
       .eq('call_now', false)
+      .lt('retry_count', 3) // Only allow up to 3 retries (4 total attempts)
       .lte('scheduled_at', oneMinuteFromNow.toISOString());
 
     if (fetchError) {
@@ -84,6 +85,8 @@ export async function GET(request: NextRequest) {
             conversation_id: result.conversationId,
             call_sid: result.callSid,
             success: result.success,
+            retry_count: call.retry_count || 0,
+            is_retry: (call.retry_count || 0) > 0,
           },
         });
 

@@ -46,6 +46,7 @@ export interface Call {
   transcript_sent_at: string | null;
   recording_purchase_link: string | null;
   recording_purchased_at: string | null;
+  retry_count: number;
   created_at: string;
   updated_at: string;
 }
