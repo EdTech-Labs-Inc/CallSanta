@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { CallStatus, Call } from '@/types/database';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { sendPostCallEmail } from '@/lib/email';
+import { queueVideoRender } from '@/lib/video';
 
 /**
  * Verify HMAC signature from ElevenLabs webhook
@@ -280,6 +281,26 @@ async function handleAudioWebhook(data: {
   });
 
   console.log(`Audio saved for call ${call.id}: ${publicUrl}`);
+
+  // Queue video rendering for all calls with recordings
+  // This creates a shareable social media video
+  try {
+    await queueVideoRender({
+      callId: call.id,
+      audioUrl: publicUrl,
+      childName: call.child_name,
+    });
+    console.log(`Video render queued for call ${call.id}`);
+
+    await supabaseAdmin.from('call_events').insert({
+      call_id: call.id,
+      event_type: 'video_render_queued',
+      event_data: { audio_url: publicUrl },
+    });
+  } catch (videoError) {
+    console.error(`Failed to queue video render for call ${call.id}:`, videoError);
+    // Don't fail the webhook if video render fails
+  }
 
   // If recording was purchased, send post-call email now that we have the audio
   // Only send if transcript_sent_at is null (email not already sent)

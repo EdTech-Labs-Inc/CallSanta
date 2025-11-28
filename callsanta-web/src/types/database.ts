@@ -46,6 +46,9 @@ export interface Call {
   transcript_sent_at: string | null;
   recording_purchase_link: string | null;
   recording_purchased_at: string | null;
+  video_url: string | null;
+  video_generated_at: string | null;
+  video_status: 'pending' | 'processing' | 'completed' | 'failed' | null;
   created_at: string;
   updated_at: string;
 }
