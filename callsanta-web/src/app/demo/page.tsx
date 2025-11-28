@@ -113,7 +113,7 @@ function DemoHero() {
             {/* For Vimeo: https://player.vimeo.com/video/VIDEO_ID */}
             <iframe
               className="absolute inset-0 w-full h-full"
-              src="https://www.youtube.com/embed/p-D9NmeZ0vs"
+              src="https://www.youtube.com/embed/uP_0oe79qzw"
               title="Call Santa Demo Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
