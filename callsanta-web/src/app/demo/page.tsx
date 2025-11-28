@@ -1,68 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookingWizard } from '@/components/forms';
-import { BookingFormData } from '@/lib/schemas/booking';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { Footer } from '@/components/layout';
 import { FaInstagram, FaTiktok, FaXTwitter, FaFacebook, FaYoutube, FaReddit } from 'react-icons/fa6';
 import type { IconType } from 'react-icons';
+import Link from 'next/link';
 
-// Pricing in cents
-const PRICING = {
-  basePrice: 99, // $0.99
-  recordingPrice: 0, // $0.00
-};
-
-async function handleBookingSubmit(
-  data: BookingFormData,
-  voiceFile: File | null
-): Promise<{
-  callId: string;
-  clientSecret: string;
-  amount: number;
-  currency: string;
-  checkoutUrl: string;
-}> {
-  const formData = new FormData();
-  formData.append('data', JSON.stringify(data));
-  if (voiceFile) {
-    formData.append('voiceRecording', voiceFile);
-  }
-
-  const response = await fetch('/api/calls', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    let message = 'Failed to create booking';
-    try {
-      const err = await response.json();
-      if (err?.error || err?.details) {
-        message = `${err.error || message}${err.details ? `: ${err.details}` : ''}`;
-      }
-    } catch {
-      /* ignore json parse errors */
-    }
-    throw new Error(message);
-  }
-
-  return response.json();
-}
-
-export default function BookPage() {
-  const [showWizard, setShowWizard] = useState(false);
-  const wizardRef = useRef<HTMLDivElement | null>(null);
-
-  const handleBookNow = useCallback(() => {
-    setShowWizard(true);
-    setTimeout(() => {
-      wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
-  }, []);
-
+export default function DemoPage() {
   return (
     <div className="min-h-screen overflow-hidden relative">
       {/* White As Seen Bar at very top - snow falls FROM here */}
@@ -75,23 +21,7 @@ export default function BookPage() {
 
         {/* Main Content */}
         <main className="relative z-10">
-          <div className="-mt-4">
-            <BookingHero onBookNow={handleBookNow} />
-          </div>
-
-          {/* Booking Section */}
-          <div
-          id="booking-wizard"
-          ref={wizardRef}
-          className="max-w-6xl mx-auto scroll-mt-10 px-4 sm:px-6 pt-6 pb-16"
-        >
-          {showWizard ? (
-            <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <BookingWizard onSubmit={handleBookingSubmit} pricing={PRICING} />
-            </div>
-          ) : null}
-        </div>
-
+          <DemoHero />
         </main>
 
         {/* Bottom snow accumulation effect */}
@@ -100,33 +30,6 @@ export default function BookPage() {
         <Footer />
       </div>
     </div>
-  );
-}
-
-/* ============================================
-   SVG ICONS
-   ============================================ */
-function ShieldIcon() {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-    </svg>
-  );
-}
-
-function HeartIcon() {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-    </svg>
   );
 }
 
@@ -158,80 +61,102 @@ function AsSeenBar({ className }: { className?: string }) {
           <div className="h-px w-8 bg-[#d4a849]" />
         </div>
 
-      {/* Platform logos */}
-      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-        {PLATFORMS.map((platform) => (
-          <div key={platform.name} className="transition-transform duration-300">
-            <platform.icon
-              size={24}
-              className="text-[#c41e3a] opacity-80 hover:opacity-100 transition-opacity"
-            />
-          </div>
-        ))}
-      </div>
+        {/* Platform logos */}
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+          {PLATFORMS.map((platform) => (
+            <div key={platform.name} className="transition-transform duration-300">
+              <platform.icon
+                size={24}
+                className="text-[#c41e3a] opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 /* ============================================
-   BOOKING HERO COMPONENT - CLEAN & ELEGANT
+   DEMO HERO COMPONENT - VIDEO SHOWCASE
    ============================================ */
-function BookingHero({ onBookNow }: { onBookNow?: () => void }) {
+function DemoHero() {
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center px-6 py-12">
       {/* Main content card */}
-      <div className="relative z-10 text-center max-w-2xl mx-auto">
+      <div className="relative z-10 text-center max-w-3xl mx-auto">
         {/* White card with gold border */}
         <div className="bg-white rounded-3xl p-6 sm:p-9 shadow-2xl border-2 border-[#d4a849] relative">
           {/* Top badge */}
           <div className="absolute -top-4 left-1/2 -translate-x-1/2">
             <div className="bg-[#d4a849] text-white px-6 py-2 rounded-full font-bold text-xs tracking-wide shadow-lg whitespace-nowrap uppercase">
-              Magical Experience
+              See How It Works
             </div>
           </div>
 
           {/* Santa illustration */}
           <div className="relative inline-block mb-4 mt-2">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-full bg-[#c41e3a]/15 flex items-center justify-center">
-              <div className="text-5xl sm:text-6xl text-white drop-shadow-lg">🎅🏼</div>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full bg-[#c41e3a]/15 flex items-center justify-center">
+              <div className="text-4xl sm:text-5xl text-white drop-shadow-lg">🎬</div>
             </div>
           </div>
 
-          {/* Typography - single color */}
-          <div className="space-y-3 mb-5">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#c41e3a]">
-              Call with Santa!
-            </h1>
-            
-            <p className="text-lg sm:text-xl text-[#c41e3a]/70 leading-relaxed max-w-lg mx-auto">
-            Our real santa will call a number, ask your child or friend about their wishlist and then email it to you!
+          {/* Title */}
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#c41e3a] mb-6">
+            Watch Santa in Action!
+          </h1>
+
+          {/* Video Container */}
+          <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg border-2 border-[#d4a849]/30 mb-6">
+            {/* Replace the src with your actual video URL */}
+            {/* For YouTube: https://www.youtube.com/embed/VIDEO_ID */}
+            {/* For Vimeo: https://player.vimeo.com/video/VIDEO_ID */}
+            <iframe
+              className="absolute inset-0 w-full h-full"
+              src="https://www.youtube.com/embed/p-D9NmeZ0vs"
+              title="Call Santa Demo Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+
+          {/* Description text */}
+          <div className="space-y-4 mb-6">
+            <p className="text-lg sm:text-xl text-[#c41e3a]/80 leading-relaxed max-w-lg mx-auto">
+              Watch how Santa calls your child, asks about their wishlist, and creates a magical holiday memory they&apos;ll never forget!
             </p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-[#c41e3a]/60">
+              <span className="flex items-center gap-2">
+                <span className="text-lg">📞</span> Real phone call
+              </span>
+              <span className="hidden sm:block">•</span>
+              <span className="flex items-center gap-2">
+                <span className="text-lg">🎅🏼</span> Authentic Santa voice
+              </span>
+              <span className="hidden sm:block">•</span>
+              <span className="flex items-center gap-2">
+                <span className="text-lg">📧</span> Wishlist sent to you
+              </span>
+            </div>
           </div>
 
           {/* CTA Button */}
-          <div className="relative inline-block group mb-4">
-            <Button
-              size="lg"
-              onClick={onBookNow}
-              className="bg-[#c41e3a] hover:bg-[#a01830] text-white text-xl sm:text-2xl px-12 py-6 rounded-full font-bold shadow-xl transition-all duration-300 hover:scale-105 border-2 border-[#d4a849]"
-            >
-              Book Now — $0.99
-            </Button>
-<a
-                              href="/demo"
-                              className="mt-3 block text-sm text-[#c41e3a] underline underline-offset-4 decoration-[#d4a849]/60 hover:text-[#a01830] transition-colors"
-                            >
-                              See a demo
-                            </a>
-            <div className="mt-12 text-xs text-gray-500 underline cursor-pointer font-normal">
-              Learn how we keep calls safe & magical
-            </div>
+          <div className="relative inline-block group">
+            <Link href="/book">
+              <Button
+                size="lg"
+                className="bg-[#c41e3a] hover:bg-[#a01830] text-white text-xl sm:text-2xl px-12 py-6 rounded-full font-bold shadow-xl transition-all duration-300 hover:scale-105 border-2 border-[#d4a849]"
+              >
+                Book Your Call — $0.99
+              </Button>
+            </Link>
+            <p className="mt-4 text-sm text-[#c41e3a]/60">
+              Create magical memories this holiday season ✨
+            </p>
           </div>
-
         </div>
       </div>
-
     </section>
   );
 }
@@ -321,3 +246,4 @@ function Snowfall() {
     </div>
   );
 }
+
