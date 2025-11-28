@@ -313,6 +313,14 @@ async function handleAudioWebhook(data: {
 /**
  * Handle call_initiation_failure webhook
  * Sent when call fails to connect (busy, no answer, etc.)
+ *
+ * Retry Logic:
+ * - If failure_reason is 'no-answer' or 'busy' AND retry_count < 3:
+ *   - Reset call_status to 'scheduled' for next cron pickup
+ *   - Increment retry_count
+ *   - Set call_now to false (so cron handles it)
+ *   - Clear conversation/call IDs for fresh attempt
+ * - Otherwise: mark as final failure
  */
 async function handleCallFailureWebhook(data: {
   agent_id: string;
@@ -337,41 +345,90 @@ async function handleCallFailureWebhook(data: {
     return NextResponse.json({ received: true, warning: 'Call not found' });
   }
 
-  // Map failure reason to our status
-  const statusMap: Record<string, CallStatus> = {
-    busy: 'failed',
-    'no-answer': 'no_answer',
-    'no_answer': 'no_answer',
-    unknown: 'failed',
-  };
+  // Determine if this failure reason is retryable
+  const retryableReasons = ['no-answer', 'no_answer', 'busy'];
+  const isRetryable = retryableReasons.includes(data.failure_reason);
+  const currentRetryCount = call.retry_count || 0;
+  const maxRetries = 3;
+  const canRetry = isRetryable && currentRetryCount < maxRetries;
 
-  const mappedStatus = statusMap[data.failure_reason] || 'failed';
+  if (canRetry) {
+    // Queue for retry on next cron run
+    const { error: updateError } = await supabaseAdmin
+      .from('calls')
+      .update({
+        call_status: 'scheduled',
+        retry_count: currentRetryCount + 1,
+        call_now: false,
+        // Clear previous attempt identifiers for fresh attempt
+        elevenlabs_conversation_id: null,
+        twilio_call_sid: null,
+        call_started_at: null,
+        call_ended_at: null,
+      })
+      .eq('id', call.id);
 
-  // Update call record
-  const { error: updateError } = await supabaseAdmin
-    .from('calls')
-    .update({
-      call_status: mappedStatus,
-      call_ended_at: new Date().toISOString(),
-    })
-    .eq('id', call.id);
+    if (updateError) {
+      console.error('Failed to update call for retry:', updateError);
+    }
 
-  if (updateError) {
-    console.error('Failed to update call:', updateError);
+    // Log the retry event
+    await supabaseAdmin.from('call_events').insert({
+      call_id: call.id,
+      event_type: 'call_retry_scheduled',
+      event_data: {
+        failure_reason: data.failure_reason,
+        previous_retry_count: currentRetryCount,
+        new_retry_count: currentRetryCount + 1,
+        provider_type: data.metadata?.type,
+        provider_details: data.metadata?.body,
+      },
+    });
+
+    console.log(
+      `Call ${call.id} scheduled for retry (attempt ${currentRetryCount + 2} of 4): ${data.failure_reason}`
+    );
+  } else {
+    // Final failure - no more retries
+    const statusMap: Record<string, CallStatus> = {
+      busy: 'failed',
+      'no-answer': 'no_answer',
+      'no_answer': 'no_answer',
+      unknown: 'failed',
+    };
+
+    const mappedStatus = statusMap[data.failure_reason] || 'failed';
+
+    const { error: updateError } = await supabaseAdmin
+      .from('calls')
+      .update({
+        call_status: mappedStatus,
+        call_ended_at: new Date().toISOString(),
+      })
+      .eq('id', call.id);
+
+    if (updateError) {
+      console.error('Failed to update call:', updateError);
+    }
+
+    // Log the final failure event
+    await supabaseAdmin.from('call_events').insert({
+      call_id: call.id,
+      event_type: 'call_initiation_failure',
+      event_data: {
+        failure_reason: data.failure_reason,
+        retry_count: currentRetryCount,
+        max_retries_reached: isRetryable && currentRetryCount >= maxRetries,
+        is_retryable_reason: isRetryable,
+        provider_type: data.metadata?.type,
+        provider_details: data.metadata?.body,
+      },
+    });
+
+    console.log(
+      `Call ${call.id} failed permanently: ${data.failure_reason} (retries: ${currentRetryCount})`
+    );
   }
-
-  // Log the event
-  await supabaseAdmin.from('call_events').insert({
-    call_id: call.id,
-    event_type: 'call_initiation_failure',
-    event_data: {
-      failure_reason: data.failure_reason,
-      provider_type: data.metadata?.type,
-      provider_details: data.metadata?.body,
-    },
-  });
-
-  console.log(`Call ${call.id} failed: ${data.failure_reason}`);
 
   return NextResponse.json({ received: true, callId: call.id, type: 'failure' });
 }

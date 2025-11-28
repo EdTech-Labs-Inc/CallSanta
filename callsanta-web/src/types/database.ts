@@ -49,6 +49,7 @@ export interface Call {
   video_url: string | null;
   video_generated_at: string | null;
   video_status: 'pending' | 'processing' | 'completed' | 'failed' | null;
+  retry_count: number;
   created_at: string;
   updated_at: string;
 }

@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { constructWebhookEvent } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendBookingConfirmationEmail } from '@/lib/email';
+import { sendPaymentNotification } from '@/lib/discord';
 import { initiateCall } from '@/lib/elevenlabs';
 import { Call } from '@/types/database';
 
@@ -172,6 +173,12 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   await logCallEvent(callId, 'booking_confirmation_email_sent', {
     email_result: emailResult,
   });
+
+  // Send Discord payment notification (fire-and-forget, don't block on failure)
+  const discordResult = await sendPaymentNotification(typedCall);
+  await logCallEvent(callId, 'discord_payment_notification_sent', {
+    discord_result: discordResult,
+  });
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
@@ -285,6 +292,13 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         throw updateError;
       }
     }
+
+    // Send Discord payment notification for call bookings (fire-and-forget)
+    const discordResult = await sendPaymentNotification(typedCall);
+    await logCallEvent(callId, 'discord_payment_notification_sent', {
+      discord_result: discordResult,
+      triggered_by: 'payment_intent_succeeded',
+    });
   }
 
   await logCallEvent(callId, 'payment_intent_succeeded', {
