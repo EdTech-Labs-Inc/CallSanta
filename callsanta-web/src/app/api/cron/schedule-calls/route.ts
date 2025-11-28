@@ -10,7 +10,7 @@ import { Call } from '@/types/database';
  * Finds calls that are:
  * - status: 'scheduled'
  * - payment_status: 'paid'
- * - scheduled_at: within the next minute
+ * - scheduled_at: any time in the past or within the next minute
  */
 export async function GET(request: NextRequest) {
   // Verify cron secret (Vercel sends this in the Authorization header)
@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('call_status', 'scheduled')
       .eq('payment_status', 'paid')
-      .lte('scheduled_at', oneMinuteFromNow.toISOString())
-      .gte('scheduled_at', new Date(now.getTime() - 300000).toISOString()); // Not more than 5 min in the past
+      .lte('scheduled_at', oneMinuteFromNow.toISOString());
 
     if (fetchError) {
       console.error('Error fetching scheduled calls:', fetchError);
