@@ -56,6 +56,17 @@ export default function BookPage() {
   const [showWizard, setShowWizard] = useState(false);
   const wizardRef = useRef<HTMLDivElement | null>(null);
 
+  // Check URL for ?book=true to auto-show wizard (from demo page)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('book') === 'true') {
+      setShowWizard(true);
+      setTimeout(() => {
+        wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, []);
+
   const handleBookNow = useCallback(() => {
     setShowWizard(true);
     setTimeout(() => {
@@ -224,9 +235,9 @@ function BookingHero({ onBookNow }: { onBookNow?: () => void }) {
             >
               🎬 Watch Santa in Action
             </a>
-            <div className="mt-8 text-xs text-gray-500 underline cursor-pointer font-normal">
+            <a href="/legal" className="mt-8 text-xs text-gray-500 underline hover:text-gray-700 transition-colors font-normal">
               Learn how we keep calls safe & magical
-            </div>
+            </a>
           </div>
 
         </div>

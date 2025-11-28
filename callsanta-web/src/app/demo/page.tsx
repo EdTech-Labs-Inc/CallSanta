@@ -143,7 +143,7 @@ function DemoHero() {
 
           {/* CTA Button */}
           <div className="relative inline-block group">
-            <Link href="/book">
+            <Link href="/book?book=true">
               <Button
                 size="lg"
                 className="bg-[#c41e3a] hover:bg-[#a01830] text-white text-xl sm:text-2xl px-12 py-6 rounded-full font-bold shadow-xl transition-all duration-300 hover:scale-105 border-2 border-[#d4a849]"
