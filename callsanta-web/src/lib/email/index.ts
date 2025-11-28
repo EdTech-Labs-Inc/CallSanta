@@ -6,8 +6,19 @@ import {
   postCallTemplate,
 } from './templates';
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialize Resend client to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resend) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+    resend = new Resend(apiKey);
+  }
+  return resend;
+}
 
 // Hardcode the email to avoid any env var issues
 // The env var might have invisible characters or encoding issues
@@ -72,7 +83,7 @@ export async function sendBookingConfirmationEmail(call: Call): Promise<EmailRes
     console.log('[Email] sendBookingConfirmationEmail - Call ID:', call.id);
     console.log('[Email] sendBookingConfirmationEmail - parent_email:', call.parent_email);
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResendClient().emails.send({
       ...emailPayload,
       html: bookingConfirmationTemplate(call),
     });
@@ -107,7 +118,7 @@ export async function sendOneHourReminderEmail(call: Call): Promise<EmailResult>
     console.log('[Email] sendOneHourReminderEmail - parent_email:', call.parent_email);
     console.log('[Email] sendOneHourReminderEmail - scheduled_at:', call.scheduled_at);
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResendClient().emails.send({
       ...emailPayload,
       html: oneHourReminderTemplate(call),
     });
@@ -134,7 +145,7 @@ export async function sendPostCallEmail(call: Call): Promise<EmailResult> {
     const template = postCallTemplate(call);
     const subject = `Santa's Call with ${call.child_name} - Recording Ready!`;
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResendClient().emails.send({
       from: EMAIL_FROM,
       to: call.parent_email,
       subject,

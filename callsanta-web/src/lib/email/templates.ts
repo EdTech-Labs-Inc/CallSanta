@@ -183,6 +183,7 @@ export function oneHourReminderTemplate(call: Call): string {
  */
 export function postCallTemplate(call: Call): string {
   const downloadUrl = `${APP_URL}/recording/${call.id}`;
+  const videoUrl = call.video_url ? `${APP_URL}/recording/${call.id}?tab=video` : null;
 
   const content = `
     <div style="${styles.header}">
@@ -194,7 +195,7 @@ export function postCallTemplate(call: Call): string {
     <div style="${styles.content}">
       <p style="font-size: 16px; color: #333; line-height: 1.6;">
         Ho ho ho! Santa just finished a wonderful conversation with ${call.child_name}!
-        Below you'll find the full transcript and a link to download the recording.
+        Below you'll find the full transcript and links to download the recording.
       </p>
 
       ${call.call_duration_seconds ? `
@@ -209,6 +210,24 @@ export function postCallTemplate(call: Call): string {
           Download Recording
         </a>
       </div>
+
+      ${videoUrl ? `
+      <div style="background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%); color: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; text-align: center;">
+        <p style="margin: 0 0 8px; font-size: 20px;">&#127909; NEW: Shareable Video!</p>
+        <p style="margin: 0 0 16px; font-size: 14px; opacity: 0.9;">
+          Share ${call.child_name}'s magical moment on TikTok, Instagram Reels, or with family!
+        </p>
+        <a href="${videoUrl}" style="${styles.button}; background: #ffffff; color: #C41E3A;">
+          Download Video
+        </a>
+      </div>
+      ` : `
+      <div style="background: #f8f9fa; border: 2px dashed #ddd; padding: 20px; border-radius: 12px; margin: 24px 0; text-align: center;">
+        <p style="margin: 0; color: #666; font-size: 14px;">
+          &#127909; Your shareable video is being generated and will be ready shortly!
+        </p>
+      </div>
+      `}
 
       <div style="background: #f8f9fa; border-left: 4px solid #C41E3A; padding: 24px; margin: 24px 0; border-radius: 0 8px 8px 0;">
         <h3 style="margin: 0 0 16px; color: #C41E3A; font-size: 16px;">&#128221; Call Transcript</h3>
