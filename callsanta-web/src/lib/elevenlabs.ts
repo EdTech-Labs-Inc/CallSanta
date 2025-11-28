@@ -69,10 +69,12 @@ export async function initiateCall(
   }
 
   const data = await response.json();
+
+  // Note: API returns snake_case (call_sid) not camelCase (callSid)
   return {
     conversationId: data.conversation_id ?? null,
-    callSid: data.callSid ?? null,
-    success: data.success ?? false,
+    callSid: data.call_sid ?? data.callSid ?? null,
+    success: data.success ?? (!!data.conversation_id),
   };
 }
 

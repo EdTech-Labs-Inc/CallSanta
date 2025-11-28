@@ -61,13 +61,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const isRecordingPurchase = session.metadata?.type === 'recording_purchase';
 
   if (!callId) {
-    console.error('No call_id in session metadata');
     return;
   }
 
   if (isRecordingPurchase) {
-    // Recording purchases are now free - this path should not be hit
-    console.log('Ignoring recording_purchase webhook - recordings are now free');
     return;
   }
 
@@ -79,7 +76,6 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     .single();
 
   if (fetchCallError || !call) {
-    console.error('[Stripe] Error fetching call:', fetchCallError);
     throw fetchCallError || new Error('Call not found');
   }
 
@@ -88,8 +84,6 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   // If call_now is true, initiate the call immediately
   if (typedCall.call_now) {
-    console.log(`[Stripe] Call Now detected for call ${callId} - initiating immediately`);
-
     try {
       const result = await initiateCall(typedCall.phone_number, {
         childName: typedCall.child_name,
@@ -98,6 +92,14 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         childInfoText: typedCall.child_info_text || undefined,
         childInfoVoiceTranscript: typedCall.child_info_voice_transcript || undefined,
       });
+
+      if (!result.success) {
+        throw new Error(`Call initiation failed: success=${result.success}`);
+      }
+
+      if (!result.callSid && !result.conversationId) {
+        throw new Error('Call initiation returned no identifiers');
+      }
 
       // Update call with queued status and ElevenLabs/Twilio IDs
       const { error: updateError } = await supabaseAdmin
@@ -114,7 +116,6 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         .eq('id', callId);
 
       if (updateError) {
-        console.error('[Stripe] Error updating call after immediate initiation:', updateError);
         throw updateError;
       }
 
@@ -124,12 +125,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         success: result.success,
         triggered_by: 'stripe_webhook_call_now',
       });
-
-      console.log(`[Stripe] Immediately initiated call ${callId} for ${typedCall.child_name}`);
     } catch (initiateError) {
       // If call initiation fails, still mark as paid but set status to failed
-      console.error(`[Stripe] Failed to initiate call ${callId}:`, initiateError);
-
       await supabaseAdmin
         .from('calls')
         .update({
@@ -158,7 +155,6 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       .eq('id', callId);
 
     if (error) {
-      console.error('Error updating call after payment:', error);
       throw error;
     }
   }
@@ -172,28 +168,16 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   });
 
   // Send confirmation email
-  console.log('[Stripe] Fetched call for booking confirmation:', {
-    id: typedCall.id,
-    parent_email: typedCall.parent_email,
-    child_name: typedCall.child_name,
-  });
-
-  console.log('[Stripe] Sending booking confirmation email...');
   const emailResult = await sendBookingConfirmationEmail(typedCall);
-  console.log('[Stripe] Booking confirmation email result:', emailResult);
   await logCallEvent(callId, 'booking_confirmation_email_sent', {
     email_result: emailResult,
   });
-
-  console.log(`[Stripe] Checkout completed for call ${callId}`);
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   const callId = paymentIntent.metadata?.call_id;
 
   if (!callId) {
-    // This might be from a payment link without metadata
-    console.log('Payment intent succeeded without call_id metadata');
     return;
   }
 
@@ -212,7 +196,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       .eq('id', callId);
 
     if (updateError) {
-      console.error('Error updating call after recording purchase:', updateError);
       throw updateError;
     }
   } else {
@@ -224,15 +207,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       .single();
 
     if (fetchError || !call) {
-      console.error('[Stripe PI] Error fetching call:', fetchError);
       throw fetchError || new Error('Call not found');
     }
 
     const typedCall = call as Call;
 
     if (typedCall.call_now) {
-      console.log(`[Stripe PI] Call Now detected for call ${callId} - initiating immediately`);
-
       try {
         const result = await initiateCall(typedCall.phone_number, {
           childName: typedCall.child_name,
@@ -241,6 +221,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
           childInfoText: typedCall.child_info_text || undefined,
           childInfoVoiceTranscript: typedCall.child_info_voice_transcript || undefined,
         });
+
+        if (!result.success) {
+          throw new Error(`Call initiation failed: success=${result.success}`);
+        }
+
+        if (!result.callSid && !result.conversationId) {
+          throw new Error('Call initiation returned no identifiers');
+        }
 
         const { error: updateError } = await supabaseAdmin
           .from('calls')
@@ -256,7 +244,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
           .eq('id', callId);
 
         if (updateError) {
-          console.error('[Stripe PI] Error updating call after immediate initiation:', updateError);
           throw updateError;
         }
 
@@ -266,11 +253,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
           success: result.success,
           triggered_by: 'stripe_webhook_payment_intent_call_now',
         });
-
-        console.log(`[Stripe PI] Immediately initiated call ${callId} for ${typedCall.child_name}`);
       } catch (initiateError) {
-        console.error(`[Stripe PI] Failed to initiate call ${callId}:`, initiateError);
-
         await supabaseAdmin
           .from('calls')
           .update({
@@ -299,7 +282,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         .eq('id', callId);
 
       if (updateError) {
-        console.error('Error updating call after payment intent success:', updateError);
         throw updateError;
       }
     }
@@ -318,7 +300,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   const callId = paymentIntent.metadata?.call_id;
 
   if (!callId) {
-    console.log('Payment failed without call_id metadata');
     return;
   }
 
@@ -331,7 +312,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     .eq('id', callId);
 
   if (error) {
-    console.error('Error updating call after payment failure:', error);
     throw error;
   }
 
@@ -339,8 +319,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     payment_intent_id: paymentIntent.id,
     error: paymentIntent.last_payment_error?.message,
   });
-
-  console.log(`Payment failed for call ${callId}`);
 }
 
 async function logCallEvent(
