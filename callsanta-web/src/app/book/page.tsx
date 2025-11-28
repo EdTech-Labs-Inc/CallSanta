@@ -6,7 +6,8 @@ import { BookingFormData } from '@/lib/schemas/booking';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { Footer } from '@/components/layout';
-import Image from 'next/image';
+import { FaInstagram, FaTiktok, FaXTwitter, FaFacebook, FaYoutube, FaReddit } from 'react-icons/fa6';
+import type { IconType } from 'react-icons';
 
 // Pricing in cents
 const PRICING = {
@@ -132,13 +133,13 @@ function HeartIcon() {
 /* ============================================
    AS SEEN BAR COMPONENT - WHITE BACKGROUND
    ============================================ */
-const PLATFORMS = [
-  { name: 'Instagram', src: '/1.png', size: 30 },
-  { name: 'TikTok', src: '/2.png', size: 30 },
-  { name: 'X', src: '/3.png', size: 30 },
-  { name: 'Facebook', src: '/4.png', size: 30 },
-  { name: 'YouTube', src: '/5.png', size: 30 },
-  { name: 'Reddit', src: '/6.png', size: 30 },
+const PLATFORMS: { name: string; icon: IconType }[] = [
+  { name: 'Instagram', icon: FaInstagram },
+  { name: 'TikTok', icon: FaTiktok },
+  { name: 'X', icon: FaXTwitter },
+  { name: 'Facebook', icon: FaFacebook },
+  { name: 'YouTube', icon: FaYoutube },
+  { name: 'Reddit', icon: FaReddit },
 ];
 
 function AsSeenBar({ className }: { className?: string }) {
@@ -161,16 +162,13 @@ function AsSeenBar({ className }: { className?: string }) {
       <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
         {PLATFORMS.map((platform) => (
           <div key={platform.name} className="transition-transform duration-300">
-            <Image
-                src={platform.src}
-                alt={platform.name}
-                width={platform.size}
-                height={platform.size}
-                className="opacity-80 hover:opacity-100 transition-opacity"
-              />
-            </div>
-          ))}
-        </div>
+            <platform.icon
+              size={24}
+              className="text-[#c41e3a] opacity-80 hover:opacity-100 transition-opacity"
+            />
+          </div>
+        ))}
+      </div>
       </div>
     </div>
   );
