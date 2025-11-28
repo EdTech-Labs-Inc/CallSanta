@@ -144,8 +144,8 @@ function HeartIcon() {
 /* ============================================
    AS SEEN BAR COMPONENT - WHITE BACKGROUND
    ============================================ */
-const PLATFORMS: { name: string; icon: IconType }[] = [
-  { name: 'Instagram', icon: FaInstagram },
+const PLATFORMS: { name: string; icon: IconType; link?: string }[] = [
+  { name: 'Instagram', icon: FaInstagram, link: 'https://www.instagram.com/santasnumberdotcom' },
   { name: 'TikTok', icon: FaTiktok },
   { name: 'X', icon: FaXTwitter },
   { name: 'Facebook', icon: FaFacebook },
@@ -173,10 +173,19 @@ function AsSeenBar({ className }: { className?: string }) {
       <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
         {PLATFORMS.map((platform) => (
           <div key={platform.name} className="transition-transform duration-300">
-            <platform.icon
-              size={24}
-              className="text-[#c41e3a] opacity-80 hover:opacity-100 transition-opacity"
-            />
+            {platform.link ? (
+              <a href={platform.link} target="_blank" rel="noopener noreferrer">
+                <platform.icon
+                  size={24}
+                  className="text-[#c41e3a] opacity-80 hover:opacity-100 transition-opacity"
+                />
+              </a>
+            ) : (
+              <platform.icon
+                size={24}
+                className="text-[#c41e3a] opacity-80 hover:opacity-100 transition-opacity"
+              />
+            )}
           </div>
         ))}
       </div>
