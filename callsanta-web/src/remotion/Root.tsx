@@ -6,8 +6,9 @@ export const RemotionRoot: React.FC = () => {
     <>
       <Composition
         id="SantaCallVideo"
-        component={SantaCallVideo}
-        durationInFrames={60 * 60} // Default 60 seconds at 60fps, will be overridden
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        component={SantaCallVideo as any}
+        durationInFrames={60 * 60}
         fps={60}
         width={1080}
         height={1920}
@@ -21,4 +22,3 @@ export const RemotionRoot: React.FC = () => {
     </>
   );
 };
-

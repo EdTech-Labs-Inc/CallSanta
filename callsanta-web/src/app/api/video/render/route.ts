@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { renderSantaVideo } from '@/lib/video';
+import { queueVideoRender } from '@/lib/video';
 
 /**
  * POST /api/video/render
- * Trigger video rendering for a completed call
+ * Queue video rendering for a completed call
+ * 
+ * NOTE: Actual rendering is done by a separate worker process
+ * This endpoint just queues the job
  * 
  * Body: { callId: string }
  */
@@ -42,45 +45,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if video is already being processed or completed
-    if (call.video_status === 'processing') {
-      return NextResponse.json(
-        { error: 'Video is already being processed' },
-        { status: 409 }
-      );
-    }
-
-    if (call.video_status === 'completed' && call.video_url) {
-      return NextResponse.json({
-        message: 'Video already exists',
-        videoUrl: call.video_url,
-      });
-    }
-
-    // Start video rendering
-    console.log(`[API] Starting video render for call ${callId}`);
-
-    const result = await renderSantaVideo({
+    // Queue the video render
+    await queueVideoRender({
       callId,
       audioUrl: call.recording_url,
       childName: call.child_name,
     });
 
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        videoUrl: result.videoUrl,
-        message: 'Video rendered successfully',
-      });
-    } else {
-      return NextResponse.json(
-        { error: result.error || 'Video rendering failed' },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({
+      success: true,
+      message: 'Video queued for rendering',
+      note: 'Run the worker to process: npm run video:process',
+    });
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[API] Video render error:', errorMessage);
+    console.error('[API] Video queue error:', errorMessage);
     
     return NextResponse.json(
       { error: errorMessage },
@@ -104,24 +84,35 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data: call, error } = await supabaseAdmin
-    .from('calls')
-    .select('video_url, video_status, video_generated_at')
-    .eq('id', callId)
-    .single();
+  try {
+    const { data: call, error } = await supabaseAdmin
+      .from('calls')
+      .select('id, child_name, recording_url')
+      .eq('id', callId)
+      .single();
 
-  if (error || !call) {
+    if (error || !call) {
+      return NextResponse.json(
+        { error: 'Call not found' },
+        { status: 404 }
+      );
+    }
+
+    // Try to get video fields (may not exist if migration not run)
+    const fullCall = call as Record<string, unknown>;
+
+    return NextResponse.json({
+      callId,
+      childName: call.child_name,
+      hasRecording: !!call.recording_url,
+      videoStatus: fullCall.video_status || null,
+      videoUrl: fullCall.video_url || null,
+      generatedAt: fullCall.video_generated_at || null,
+    });
+  } catch {
     return NextResponse.json(
-      { error: 'Call not found' },
-      { status: 404 }
+      { error: 'Failed to fetch call' },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    callId,
-    videoStatus: call.video_status,
-    videoUrl: call.video_url,
-    generatedAt: call.video_generated_at,
-  });
 }
-

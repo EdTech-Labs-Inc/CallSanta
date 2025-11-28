@@ -1,4 +1,7 @@
-export { renderSantaVideo, queueVideoRender } from './render';
-export { analyzeAudio } from './audio-analysis';
-export type { AudioAnalysis } from './audio-analysis';
-
+export { 
+  queueVideoRender, 
+  getPendingVideoRenders,
+  markVideoComplete,
+  markVideoFailed,
+  renderSantaVideo 
+} from './render';

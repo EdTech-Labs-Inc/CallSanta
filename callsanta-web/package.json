@@ -10,7 +10,8 @@
     "remotion:preview": "remotion preview src/remotion/index.ts",
     "remotion:render": "remotion render src/remotion/index.ts SantaCallVideo out/video.mp4",
     "remotion:studio": "remotion studio src/remotion/index.ts",
-    "remotion:test": "tsx scripts/test-video-render.ts"
+    "remotion:test": "tsx scripts/test-video-render.ts",
+    "video:process": "tsx scripts/video-worker.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
