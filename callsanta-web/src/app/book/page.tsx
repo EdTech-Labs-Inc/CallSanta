@@ -54,9 +54,10 @@ async function handleBookingSubmit(
 
 export default function BookPage() {
   const [showWizard, setShowWizard] = useState(false);
+  const [utmSource, setUtmSource] = useState<string | null>(null);
   const wizardRef = useRef<HTMLDivElement | null>(null);
 
-  // Check URL for ?book=true to auto-show wizard (from demo page)
+  // Check URL for ?book=true to auto-show wizard (from demo page) and capture utm_source
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('book') === 'true') {
@@ -64,6 +65,11 @@ export default function BookPage() {
       setTimeout(() => {
         wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
+    }
+    // Capture utm_source from URL params
+    const source = params.get('utm_source');
+    if (source) {
+      setUtmSource(source);
     }
   }, []);
 
@@ -98,7 +104,7 @@ export default function BookPage() {
         >
           {showWizard ? (
             <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <BookingWizard onSubmit={handleBookingSubmit} pricing={PRICING} />
+              <BookingWizard onSubmit={handleBookingSubmit} pricing={PRICING} utmSource={utmSource} />
             </div>
           ) : null}
         </div>

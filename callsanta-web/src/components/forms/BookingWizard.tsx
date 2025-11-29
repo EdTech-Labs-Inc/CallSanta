@@ -35,13 +35,14 @@ type PricingInfo = {
 interface BookingWizardProps {
   onSubmit: (data: BookingFormData, voiceFile: File | null) => Promise<BookingResult>;
   pricing: PricingInfo;
+  utmSource?: string | null;
 }
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null;
 
-export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
+export function BookingWizard({ onSubmit, pricing, utmSource }: BookingWizardProps) {
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [expressReady, setExpressReady] = useState(false);
@@ -138,7 +139,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     setIsSubmitting(true);
     setFlowError(null);
     try {
-      const normalized = { ...values, purchaseRecording: values.purchaseRecording ?? false };
+      const normalized = { ...values, purchaseRecording: values.purchaseRecording ?? false, utmSource: utmSource ?? null };
       const result = await onSubmit(normalized, voiceFile);
       setBookingResult(result);
     } catch (error) {
@@ -147,7 +148,7 @@ export function BookingWizard({ onSubmit, pricing }: BookingWizardProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [onSubmit, voiceFile]);
+  }, [onSubmit, voiceFile, utmSource]);
 
   const handleCheckoutRedirect = () => {
     if (!bookingResult) return;

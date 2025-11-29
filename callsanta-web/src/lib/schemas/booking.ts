@@ -11,6 +11,7 @@ export const bookingSchema = z.object({
   parentEmail: z.string().email('Valid email required'),
   purchaseRecording: z.boolean().optional(),
   callNow: z.boolean().optional(),
+  utmSource: z.string().nullable().optional(),
 });
 
 export type BookingFormData = z.infer<typeof bookingSchema>;
