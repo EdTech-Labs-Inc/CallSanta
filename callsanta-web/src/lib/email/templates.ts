@@ -2,23 +2,18 @@ import { Call } from '@/types/database';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.santasnumber.com';
 
-// Shared styles
-const styles = {
-  container: 'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;',
-  header: 'background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%); padding: 40px 20px; text-align: center;',
-  headerTitle: 'color: #ffffff; font-size: 28px; margin: 0; font-weight: bold;',
-  headerSubtitle: 'color: #FFD700; font-size: 16px; margin-top: 8px;',
-  content: 'padding: 40px 30px;',
-  card: 'background: #f8f9fa; border-radius: 12px; padding: 24px; margin: 20px 0;',
-  detailRow: 'display: flex; margin: 12px 0; align-items: flex-start;',
-  detailLabel: 'color: #666; font-size: 14px; min-width: 120px;',
-  detailValue: 'color: #333; font-size: 14px; font-weight: 500;',
-  button: 'display: inline-block; background: #C41E3A; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;',
-  buttonGreen: 'display: inline-block; background: #165B33; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;',
-  footer: 'background: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #eee;',
-  footerText: 'color: #888; font-size: 12px; margin: 0;',
-  divider: 'border: none; border-top: 1px solid #eee; margin: 30px 0;',
-  snowflake: 'font-size: 24px;',
+// Brand colors matching the website UI
+const colors = {
+  primaryRed: '#c41e3a',
+  darkRed: '#a01830',
+  gold: '#d4a849',
+  lightGold: '#fff8e7',
+  green: '#165B33',
+  white: '#ffffff',
+  lightGray: '#f8f9fa',
+  textDark: '#333333',
+  textMuted: '#666666',
+  textLight: '#888888',
 };
 
 function formatDate(dateStr: string): string {
@@ -49,18 +44,25 @@ function baseLayout(content: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Call Santa</title>
+  <title>Santa's Number</title>
 </head>
-<body style="margin: 0; padding: 0; background: #f5f5f5;">
-  <div style="${styles.container}">
-    ${content}
-    <div style="${styles.footer}">
-      <p style="${styles.footerText}">
-        &copy; ${new Date().getFullYear()} Call Santa. Spreading Christmas magic!
-      </p>
-      <p style="${styles.footerText}; margin-top: 10px;">
-        Questions? Contact us at <a href="mailto:questions@santasnumber.com" style="color: #C41E3A;">questions@santasnumber.com</a>
-      </p>
+<body style="margin: 0; padding: 0; background: ${colors.primaryRed}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <!-- Outer wrapper with red background -->
+  <div style="padding: 40px 20px; background: ${colors.primaryRed};">
+    <!-- White card container -->
+    <div style="max-width: 600px; margin: 0 auto; background: ${colors.white}; border-radius: 24px; border: 3px solid ${colors.gold}; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+      ${content}
+      
+      <!-- Footer -->
+      <div style="background: ${colors.lightGray}; padding: 30px; text-align: center; border-top: 2px solid ${colors.gold};">
+        <p style="margin: 0; font-size: 24px;">🎅🏼</p>
+        <p style="color: ${colors.textLight}; font-size: 12px; margin: 10px 0 0;">
+          &copy; ${new Date().getFullYear()} Santa's Number. Spreading Christmas magic!
+        </p>
+        <p style="color: ${colors.textLight}; font-size: 12px; margin: 8px 0 0;">
+          Questions? <a href="mailto:questions@santasnumber.com" style="color: ${colors.primaryRed}; text-decoration: none;">questions@santasnumber.com</a>
+        </p>
+      </div>
     </div>
   </div>
 </body>
@@ -77,56 +79,71 @@ export function bookingConfirmationTemplate(call: Call): string {
   const scheduledTime = formatTime(call.scheduled_at, call.timezone);
 
   const content = `
-    <div style="${styles.header}">
-      <span style="${styles.snowflake}">&#10052;</span>
-      <h1 style="${styles.headerTitle}">Ho Ho Ho! Booking Confirmed!</h1>
-      <p style="${styles.headerSubtitle}">Santa has received the call request for ${call.child_name}</p>
+    <!-- Header with gradient -->
+    <div style="background: linear-gradient(135deg, ${colors.primaryRed} 0%, ${colors.darkRed} 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 10px;">🎅🏼</div>
+      <h1 style="color: ${colors.white}; font-size: 28px; margin: 0; font-weight: bold;">
+        Ho Ho Ho! Booking Confirmed!
+      </h1>
+      <p style="color: ${colors.gold}; font-size: 16px; margin-top: 10px; margin-bottom: 0;">
+        Santa has received the call request for ${call.child_name}
+      </p>
     </div>
 
-    <div style="${styles.content}">
-      <p style="font-size: 16px; color: #333; line-height: 1.6;">
-        Great news! Your Santa call booking has been confirmed. ${call.child_name} is in for a magical experience!
+    <!-- Content -->
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 16px; color: ${colors.textDark}; line-height: 1.6; margin: 0 0 24px;">
+        Great news! Your Santa call booking has been confirmed. <strong>${call.child_name}</strong> is in for a magical experience! ✨
       </p>
 
-      <div style="${styles.card}">
-        <h3 style="margin: 0 0 16px; color: #C41E3A; font-size: 18px;">Call Details</h3>
+      <!-- Call Details Card -->
+      <div style="background: ${colors.lightGray}; border-radius: 16px; padding: 24px; margin: 24px 0; border: 2px solid ${colors.gold};">
+        <h3 style="margin: 0 0 20px; color: ${colors.primaryRed}; font-size: 18px; text-align: center;">
+          📞 Call Details
+        </h3>
 
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 8px 0; color: #666; width: 130px;">Child's Name:</td>
-            <td style="padding: 8px 0; color: #333; font-weight: 500;">${call.child_name}</td>
+            <td style="padding: 10px 0; color: ${colors.textMuted}; width: 130px; font-size: 14px;">Child's Name:</td>
+            <td style="padding: 10px 0; color: ${colors.textDark}; font-weight: 600; font-size: 14px;">${call.child_name}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #666;">Date:</td>
-            <td style="padding: 8px 0; color: #333; font-weight: 500;">${scheduledDate}</td>
+            <td style="padding: 10px 0; color: ${colors.textMuted}; font-size: 14px;">Date:</td>
+            <td style="padding: 10px 0; color: ${colors.textDark}; font-weight: 600; font-size: 14px;">${scheduledDate}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #666;">Time:</td>
-            <td style="padding: 8px 0; color: #333; font-weight: 500;">${scheduledTime}</td>
+            <td style="padding: 10px 0; color: ${colors.textMuted}; font-size: 14px;">Time:</td>
+            <td style="padding: 10px 0; color: ${colors.textDark}; font-weight: 600; font-size: 14px;">${scheduledTime}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #666;">Phone Number:</td>
-            <td style="padding: 8px 0; color: #333; font-weight: 500;">${call.phone_number}</td>
+            <td style="padding: 10px 0; color: ${colors.textMuted}; font-size: 14px;">Phone Number:</td>
+            <td style="padding: 10px 0; color: ${colors.textDark}; font-weight: 600; font-size: 14px;">${call.phone_number}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #666;">Recording:</td>
-            <td style="padding: 8px 0; color: #165B33; font-weight: 500;">&#10003; Included</td>
+            <td style="padding: 10px 0; color: ${colors.textMuted}; font-size: 14px;">Recording:</td>
+            <td style="padding: 10px 0; color: ${colors.green}; font-weight: 600; font-size: 14px;">✓ Included</td>
           </tr>
         </table>
       </div>
 
-      <h3 style="color: #333; font-size: 18px; margin-top: 30px;">What Happens Next?</h3>
+      <!-- What Happens Next -->
+      <h3 style="color: ${colors.primaryRed}; font-size: 18px; margin: 30px 0 16px; text-align: center;">
+        What Happens Next?
+      </h3>
 
-      <ol style="color: #555; line-height: 1.8; padding-left: 20px;">
-        <li style="margin-bottom: 10px;">Make sure the phone is available at the scheduled time</li>
-        <li style="margin-bottom: 10px;">Santa will call from our special North Pole number</li>
-        <li style="margin-bottom: 10px;">After the call, you'll receive a transcript and recording by email</li>
-      </ol>
+      <div style="background: ${colors.lightGold}; border-radius: 12px; padding: 20px; border-left: 4px solid ${colors.gold};">
+        <ol style="color: ${colors.textDark}; line-height: 2; padding-left: 20px; margin: 0; font-size: 14px;">
+          <li style="margin-bottom: 8px;">Make sure the phone is available at the scheduled time</li>
+          <li style="margin-bottom: 8px;">Santa will call from our special North Pole number</li>
+          <li style="margin-bottom: 0;">After the call, you'll receive a transcript and recording by email</li>
+        </ol>
+      </div>
 
-      <hr style="${styles.divider}">
+      <!-- Divider -->
+      <hr style="border: none; border-top: 2px solid ${colors.gold}; margin: 30px 0; opacity: 0.3;">
 
-      <p style="text-align: center; color: #888; font-size: 14px;">
-        We can't wait for ${call.child_name} to talk to Santa! &#127877;
+      <p style="text-align: center; color: ${colors.textMuted}; font-size: 14px; margin: 0;">
+        We can't wait for ${call.child_name} to talk to Santa! 🎄
       </p>
     </div>
   `;
@@ -142,34 +159,44 @@ export function oneHourReminderTemplate(call: Call): string {
   const scheduledTime = formatTime(call.scheduled_at, call.timezone);
 
   const content = `
-    <div style="${styles.header}">
-      <span style="${styles.snowflake}">&#128276;</span>
-      <h1 style="${styles.headerTitle}">Santa's Calling Soon!</h1>
-      <p style="${styles.headerSubtitle}">Just 1 hour until ${call.child_name}'s call with Santa</p>
+    <!-- Header with gradient -->
+    <div style="background: linear-gradient(135deg, ${colors.primaryRed} 0%, ${colors.darkRed} 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 10px;">🔔</div>
+      <h1 style="color: ${colors.white}; font-size: 28px; margin: 0; font-weight: bold;">
+        Santa's Calling Soon!
+      </h1>
+      <p style="color: ${colors.gold}; font-size: 16px; margin-top: 10px; margin-bottom: 0;">
+        Just 1 hour until ${call.child_name}'s call with Santa
+      </p>
     </div>
 
-    <div style="${styles.content}">
-      <p style="font-size: 18px; color: #333; text-align: center; line-height: 1.6;">
-        Get ready! Santa will be calling <strong>${call.child_name}</strong> in about <strong>1 hour</strong>!
+    <!-- Content -->
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 18px; color: ${colors.textDark}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
+        Get ready! Santa will be calling <strong>${call.child_name}</strong> in about <strong>1 hour</strong>! 🎅🏼
       </p>
 
-      <div style="background: #FFF8E7; border: 2px solid #FFD700; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
-        <p style="margin: 0; font-size: 14px; color: #B8860B;">SCHEDULED TIME</p>
-        <p style="margin: 8px 0 0; font-size: 28px; color: #333; font-weight: bold;">${scheduledTime}</p>
+      <!-- Time Badge -->
+      <div style="background: ${colors.lightGold}; border: 3px solid ${colors.gold}; border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: ${colors.gold}; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Scheduled Time</p>
+        <p style="margin: 10px 0 0; font-size: 32px; color: ${colors.primaryRed}; font-weight: bold;">${scheduledTime}</p>
       </div>
 
-      <div style="${styles.card}">
-        <h3 style="margin: 0 0 16px; color: #C41E3A; font-size: 16px;">Quick Checklist</h3>
-        <ul style="margin: 0; padding-left: 20px; color: #555; line-height: 2;">
+      <!-- Checklist Card -->
+      <div style="background: ${colors.lightGray}; border-radius: 16px; padding: 24px; margin: 24px 0; border: 2px solid ${colors.gold};">
+        <h3 style="margin: 0 0 16px; color: ${colors.primaryRed}; font-size: 16px; text-align: center;">
+          ✅ Quick Checklist
+        </h3>
+        <ul style="margin: 0; padding-left: 20px; color: ${colors.textDark}; line-height: 2; font-size: 14px;">
           <li>Make sure the phone (<strong>${call.phone_number}</strong>) is charged and nearby</li>
           <li>Find a quiet space where ${call.child_name} can talk</li>
           <li>Get ${call.child_name} excited - Santa's about to call!</li>
-          <li>Have fun watching the magic happen! &#10024;</li>
+          <li>Have fun watching the magic happen! ✨</li>
         </ul>
       </div>
 
-      <p style="text-align: center; color: #888; font-size: 14px; margin-top: 30px;">
-        Santa is finishing up at the workshop and getting ready to call! &#127877;
+      <p style="text-align: center; color: ${colors.textMuted}; font-size: 14px; margin-top: 30px;">
+        Santa is finishing up at the workshop and getting ready to call! 🎄
       </p>
     </div>
   `;
@@ -186,56 +213,71 @@ export function postCallTemplate(call: Call): string {
   const videoUrl = call.video_url ? `${APP_URL}/recording/${call.id}?tab=video` : null;
 
   const content = `
-    <div style="${styles.header}">
-      <span style="${styles.snowflake}">&#127877;</span>
-      <h1 style="${styles.headerTitle}">Santa Called ${call.child_name}!</h1>
-      <p style="${styles.headerSubtitle}">Your recording is ready to download</p>
+    <!-- Header with gradient -->
+    <div style="background: linear-gradient(135deg, ${colors.primaryRed} 0%, ${colors.darkRed} 100%); padding: 40px 30px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 10px;">🎅🏼</div>
+      <h1 style="color: ${colors.white}; font-size: 28px; margin: 0; font-weight: bold;">
+        Santa Called ${call.child_name}!
+      </h1>
+      <p style="color: ${colors.gold}; font-size: 16px; margin-top: 10px; margin-bottom: 0;">
+        Your recording is ready to download
+      </p>
     </div>
 
-    <div style="${styles.content}">
-      <p style="font-size: 16px; color: #333; line-height: 1.6;">
-        Ho ho ho! Santa just finished a wonderful conversation with ${call.child_name}!
+    <!-- Content -->
+    <div style="padding: 40px 30px;">
+      <p style="font-size: 16px; color: ${colors.textDark}; line-height: 1.6; margin: 0 0 16px;">
+        Ho ho ho! Santa just finished a wonderful conversation with <strong>${call.child_name}</strong>! 🎄
+      </p>
+      <p style="font-size: 16px; color: ${colors.textDark}; line-height: 1.6; margin: 0 0 24px;">
         Below you'll find the full transcript and links to download the recording.
       </p>
 
       ${call.call_duration_seconds ? `
-      <p style="color: #666; font-size: 14px;">
-        Call duration: ${Math.floor(call.call_duration_seconds / 60)} minutes ${call.call_duration_seconds % 60} seconds
+      <p style="color: ${colors.textMuted}; font-size: 14px; text-align: center; margin-bottom: 24px;">
+        📞 Call duration: ${Math.floor(call.call_duration_seconds / 60)} minutes ${call.call_duration_seconds % 60} seconds
       </p>
       ` : ''}
 
-      <div style="background: #165B33; color: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; text-align: center;">
-        <p style="margin: 0 0 16px; font-size: 14px; opacity: 0.9;">&#127908; Your Recording is Ready!</p>
-        <a href="${downloadUrl}" style="${styles.button}; background: #FFD700; color: #333;">
+      <!-- Recording Download Button -->
+      <div style="background: ${colors.green}; border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+        <p style="margin: 0 0 16px; font-size: 14px; color: ${colors.white}; opacity: 0.9;">🎙️ Your Recording is Ready!</p>
+        <a href="${downloadUrl}" style="display: inline-block; background: ${colors.gold}; color: ${colors.textDark}; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px;">
           Download Recording
         </a>
       </div>
 
       ${videoUrl ? `
-      <div style="background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%); color: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; text-align: center;">
-        <p style="margin: 0 0 8px; font-size: 20px;">&#127909; NEW: Shareable Video!</p>
-        <p style="margin: 0 0 16px; font-size: 14px; opacity: 0.9;">
+      <!-- Video Download Section -->
+      <div style="background: linear-gradient(135deg, ${colors.primaryRed} 0%, ${colors.darkRed} 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center; border: 2px solid ${colors.gold};">
+        <p style="margin: 0 0 8px; font-size: 20px; color: ${colors.white};">🎬 NEW: Shareable Video!</p>
+        <p style="margin: 0 0 16px; font-size: 14px; color: ${colors.white}; opacity: 0.9;">
           Share ${call.child_name}'s magical moment on TikTok, Instagram Reels, or with family!
         </p>
-        <a href="${videoUrl}" style="${styles.button}; background: #ffffff; color: #C41E3A;">
+        <a href="${videoUrl}" style="display: inline-block; background: ${colors.white}; color: ${colors.primaryRed}; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px;">
           Download Video
         </a>
       </div>
       ` : `
-      <div style="background: #f8f9fa; border: 2px dashed #ddd; padding: 20px; border-radius: 12px; margin: 24px 0; text-align: center;">
-        <p style="margin: 0; color: #666; font-size: 14px;">
-          &#127909; Your shareable video is being generated and will be ready shortly!
+      <!-- Video Processing Message -->
+      <div style="background: ${colors.lightGray}; border: 2px dashed ${colors.gold}; padding: 20px; border-radius: 16px; margin: 24px 0; text-align: center;">
+        <p style="margin: 0; color: ${colors.textMuted}; font-size: 14px;">
+          🎬 Your shareable video is being generated and will be ready shortly!
         </p>
       </div>
       `}
 
-      <div style="background: #f8f9fa; border-left: 4px solid #C41E3A; padding: 24px; margin: 24px 0; border-radius: 0 8px 8px 0;">
-        <h3 style="margin: 0 0 16px; color: #C41E3A; font-size: 16px;">&#128221; Call Transcript</h3>
-        <div style="color: #444; line-height: 1.8; white-space: pre-wrap; font-size: 14px;">${call.transcript || 'Transcript will be available shortly...'}</div>
+      <!-- Transcript Section -->
+      <div style="background: ${colors.lightGray}; border-left: 4px solid ${colors.primaryRed}; padding: 24px; margin: 24px 0; border-radius: 0 16px 16px 0;">
+        <h3 style="margin: 0 0 16px; color: ${colors.primaryRed}; font-size: 16px;">📝 Call Transcript</h3>
+        <div style="color: ${colors.textDark}; line-height: 1.8; white-space: pre-wrap; font-size: 14px;">${call.transcript || 'Transcript will be available shortly...'}</div>
       </div>
 
-      <p style="text-align: center; color: #888; font-size: 14px;">
-        Thank you for choosing Call Santa! We hope this brought joy to your holiday. &#10052;
+      <!-- Divider -->
+      <hr style="border: none; border-top: 2px solid ${colors.gold}; margin: 30px 0; opacity: 0.3;">
+
+      <p style="text-align: center; color: ${colors.textMuted}; font-size: 14px; margin: 0;">
+        Thank you for choosing Santa's Number! We hope this brought joy to your holiday. ❄️✨
       </p>
     </div>
   `;
