@@ -70,32 +70,33 @@ function generateWaveform(length: number): number[] {
 
 /**
  * Concatenate main video with outro using FFmpeg
+ * Scales outro to match main video resolution (1080x1920) and normalizes fps/audio
  */
 function concatenateWithOutro(mainVideoPath: string, outputPath: string): void {
   log('OUTRO', `Checking for outro at: ${OUTRO_PATH}`);
 
   if (!fs.existsSync(OUTRO_PATH)) {
-    log('OUTRO', 'No outro.mov found, skipping concatenation');
+    log('OUTRO', 'WARNING: No outro.mov found, skipping concatenation');
     fs.copyFileSync(mainVideoPath, outputPath);
     return;
   }
 
   const outroStats = fs.statSync(OUTRO_PATH);
   log('OUTRO', `Found outro.mov (${(outroStats.size / 1024 / 1024).toFixed(2)} MB)`);
-  log('OUTRO', 'Starting FFmpeg concatenation...');
+  log('OUTRO', 'Starting FFmpeg concatenation (scaling outro to 1080x1920)...');
 
   const startTime = Date.now();
 
+  // Scale outro from 2160x3840 to 1080x1920, normalize fps to 60, and resample audio to 48000Hz
+  const ffmpegCommand = `ffmpeg -y -i "${mainVideoPath}" -i "${OUTRO_PATH}" -filter_complex "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=60,format=yuv420p[outro_v];[1:a]aresample=48000[outro_a];[0:v][0:a][outro_v][outro_a]concat=n=2:v=1:a=1[outv][outa]" -map "[outv]" -map "[outa]" -c:v libx264 -c:a aac -preset fast -crf 23 "${outputPath}"`;
+
   try {
-    execSync(
-      `ffmpeg -y -i "${mainVideoPath}" -i "${OUTRO_PATH}" -filter_complex "[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]" -map "[outv]" -map "[outa]" -c:v libx264 -c:a aac -preset fast -crf 23 "${outputPath}"`,
-      { stdio: 'pipe' }
-    );
+    execSync(ffmpegCommand, { stdio: 'pipe' });
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     log('OUTRO', `Outro added successfully (took ${elapsed}s)`);
   } catch (err) {
-    log('OUTRO', `FFmpeg concat failed: ${err}`);
-    log('OUTRO', 'Using main video only (no outro)');
+    log('OUTRO', `WARNING: FFmpeg concat failed: ${err}`);
+    log('OUTRO', 'WARNING: Using main video only (no outro) - video will be missing outro!');
     fs.copyFileSync(mainVideoPath, outputPath);
   }
 }
