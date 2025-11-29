@@ -56,6 +56,17 @@ export default function BookPage() {
   const [showWizard, setShowWizard] = useState(false);
   const wizardRef = useRef<HTMLDivElement | null>(null);
 
+  // Check URL for ?book=true to auto-show wizard (from demo page)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('book') === 'true') {
+      setShowWizard(true);
+      setTimeout(() => {
+        wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, []);
+
   const handleBookNow = useCallback(() => {
     setShowWizard(true);
     setTimeout(() => {
@@ -210,7 +221,7 @@ function BookingHero({ onBookNow }: { onBookNow?: () => void }) {
           </div>
 
           {/* CTA Button */}
-          <div className="relative inline-block group mb-4">
+          <div className="flex flex-col items-center gap-4 mb-4">
             <Button
               size="lg"
               onClick={onBookNow}
@@ -219,14 +230,14 @@ function BookingHero({ onBookNow }: { onBookNow?: () => void }) {
               Book Now — $0.99
             </Button>
             <a
-              href="#demo"
-              className="mt-3 block text-sm text-[#c41e3a] underline underline-offset-4 decoration-[#d4a849]/60 hover:text-[#a01830] transition-colors"
+              href="/demo"
+              className="text-lg font-semibold text-[#c41e3a] bg-[#c41e3a]/10 hover:bg-[#c41e3a]/20 px-6 py-2 rounded-full border border-[#d4a849]/50 transition-all duration-300 hover:scale-105"
             >
-              See a demo
+              🎬 Watch Santa in Action
             </a>
-            <div className="mt-12 text-xs text-gray-500 underline cursor-pointer font-normal">
+            <a href="/legal" className="mt-8 text-xs text-gray-500 underline hover:text-gray-700 transition-colors font-normal">
               Learn how we keep calls safe & magical
-            </div>
+            </a>
           </div>
 
         </div>
