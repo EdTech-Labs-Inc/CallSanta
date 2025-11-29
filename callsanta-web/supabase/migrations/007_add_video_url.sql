@@ -10,3 +10,4 @@ COMMENT ON COLUMN calls.video_url IS 'URL to the Remotion-generated viral video 
 COMMENT ON COLUMN calls.video_generated_at IS 'Timestamp when video was generated';
 COMMENT ON COLUMN calls.video_status IS 'Video generation status: pending, processing, completed, failed';
 
+

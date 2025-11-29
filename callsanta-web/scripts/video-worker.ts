@@ -61,11 +61,20 @@ interface Call {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.santasnumber.com';
 
+// Logging helper
+function log(step: string, message: string, data?: Record<string, unknown>) {
+  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+  const dataStr = data ? ` ${JSON.stringify(data)}` : '';
+  console.log(`[${timestamp}] [${step}] ${message}${dataStr}`);
+}
+
 async function sendPostCallEmail(call: Call, videoUrl: string): Promise<void> {
   if (!call.parent_email) {
-    console.log('   No parent email, skipping email');
+    log('EMAIL', 'No parent email found, skipping email');
     return;
   }
+
+  log('EMAIL', `Preparing email for ${call.parent_email}`);
 
   const downloadUrl = `${APP_URL}/recording/${call.id}`;
   const videoPageUrl = `${APP_URL}/recording/${call.id}?tab=video`;
@@ -134,15 +143,16 @@ async function sendPostCallEmail(call: Call, videoUrl: string): Promise<void> {
   `;
 
   try {
+    log('EMAIL', 'Sending via Resend...');
     await resend.emails.send({
       from: 'Santa <santa@santasnumber.com>',
       to: call.parent_email,
       subject: `🎅 Santa's Call with ${call.child_name} - Recording & Video Ready!`,
       html,
     });
-    console.log('📧 Email sent to:', call.parent_email);
+    log('EMAIL', `✅ Email sent successfully to ${call.parent_email}`);
   } catch (err) {
-    console.error('❌ Failed to send email:', err);
+    log('EMAIL', `❌ Failed to send email: ${err}`);
   }
 }
 
@@ -151,13 +161,19 @@ async function sendPostCallEmail(call: Call, videoUrl: string): Promise<void> {
  * Re-encodes to ensure compatibility between MP4 and MOV formats
  */
 function concatenateWithOutro(mainVideoPath: string, outputPath: string): void {
+  log('OUTRO', `Checking for outro at: ${OUTRO_PATH}`);
+  
   if (!fs.existsSync(OUTRO_PATH)) {
-    console.log('   No outro.mov found, skipping concatenation');
+    log('OUTRO', 'No outro.mov found, skipping concatenation');
     fs.copyFileSync(mainVideoPath, outputPath);
     return;
   }
 
-  console.log('🎬 Adding outro...');
+  const outroStats = fs.statSync(OUTRO_PATH);
+  log('OUTRO', `Found outro.mov (${(outroStats.size / 1024 / 1024).toFixed(2)} MB)`);
+  log('OUTRO', 'Starting FFmpeg concatenation...');
+  
+  const startTime = Date.now();
   
   try {
     // Re-encode and concatenate using FFmpeg filter_complex
@@ -166,14 +182,18 @@ function concatenateWithOutro(mainVideoPath: string, outputPath: string): void {
       `ffmpeg -y -i "${mainVideoPath}" -i "${OUTRO_PATH}" -filter_complex "[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]" -map "[outv]" -map "[outa]" -c:v libx264 -c:a aac -preset fast -crf 23 "${outputPath}"`,
       { stdio: 'pipe' }
     );
-    console.log('   Outro added successfully');
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    log('OUTRO', `✅ Outro added successfully (took ${elapsed}s)`);
   } catch (err) {
-    console.error('   FFmpeg concat failed, using main video only');
+    log('OUTRO', `❌ FFmpeg concat failed: ${err}`);
+    log('OUTRO', 'Using main video only (no outro)');
     fs.copyFileSync(mainVideoPath, outputPath);
   }
 }
 
 async function getSignedAudioUrl(callId: string): Promise<string> {
+  log('AUDIO', `Getting signed URL for ${callId}.mp3`);
+  
   const fileName = `${callId}.mp3`;
   const { data, error } = await supabase.storage
     .from('call-recordings')
@@ -182,6 +202,8 @@ async function getSignedAudioUrl(callId: string): Promise<string> {
   if (error || !data?.signedUrl) {
     throw new Error(`Failed to get signed URL: ${error?.message}`);
   }
+  
+  log('AUDIO', '✅ Got signed URL');
   return data.signedUrl;
 }
 
@@ -197,39 +219,60 @@ function generateWaveform(length: number): number[] {
 
 async function renderVideo(call: Call): Promise<string> {
   const { id: callId, child_name: childName } = call;
+  const startTime = Date.now();
   
-  console.log(`\n🎬 Rendering video for: ${childName} (${callId})`);
+  console.log('\n' + '═'.repeat(60));
+  log('START', `🎬 Starting video render for: ${childName}`, { callId });
+  console.log('═'.repeat(60));
 
-  // Update status
+  // Step 1: Update status to processing
+  log('DB', 'Updating call status to "processing"');
   await supabase
     .from('calls')
     .update({ video_status: 'processing' })
     .eq('id', callId);
 
-  // Get audio
-  console.log('📥 Fetching audio...');
+  // Step 2: Get audio URL
+  log('AUDIO', 'Fetching audio from Supabase Storage...');
   const signedUrl = await getSignedAudioUrl(callId);
   
-  // Download to temp
+  // Step 3: Download audio
+  log('AUDIO', 'Downloading audio file...');
+  const downloadStart = Date.now();
   const response = await fetch(signedUrl);
   const buffer = Buffer.from(await response.arrayBuffer());
   const tempAudioPath = path.join(os.tmpdir(), `worker-audio-${callId}.mp3`);
   fs.writeFileSync(tempAudioPath, buffer);
+  const downloadTime = ((Date.now() - downloadStart) / 1000).toFixed(1);
+  log('AUDIO', `✅ Downloaded ${(buffer.length / 1024).toFixed(0)} KB in ${downloadTime}s`, { path: tempAudioPath });
   
-  // Estimate duration
+  // Step 4: Calculate duration
   const durationSeconds = Math.max(5, Math.round(buffer.length / 20000));
-  console.log(`⏱️  Duration: ~${durationSeconds}s`);
-
   const audioDurationFrames = durationSeconds * FPS;
   const totalDurationFrames = (INTRO_DURATION_SECONDS * FPS) + audioDurationFrames;
+  log('CALC', `Video duration calculated`, {
+    audioDuration: `${durationSeconds}s`,
+    introFrames: INTRO_DURATION_SECONDS * FPS,
+    totalFrames: totalDurationFrames,
+    totalSeconds: totalDurationFrames / FPS,
+  });
+
+  // Step 5: Generate waveform
+  log('WAVEFORM', 'Generating waveform data...');
   const waveformData = generateWaveform(durationSeconds * 100);
+  log('WAVEFORM', `✅ Generated ${waveformData.length} waveform points`);
 
-  // Bundle
-  console.log('📦 Bundling...');
+  // Step 6: Bundle Remotion
+  log('BUNDLE', 'Bundling Remotion project...');
+  const bundleStart = Date.now();
   const remotionEntryPath = path.join(process.cwd(), 'src', 'remotion', 'index.ts');
+  log('BUNDLE', `Entry point: ${remotionEntryPath}`);
   const bundleLocation = await bundle({ entryPoint: remotionEntryPath });
+  const bundleTime = ((Date.now() - bundleStart) / 1000).toFixed(1);
+  log('BUNDLE', `✅ Bundle created in ${bundleTime}s`);
 
-  // Configure
+  // Step 7: Configure composition
+  log('COMPOSE', 'Selecting composition...');
   const inputProps = {
     audioUrl: signedUrl,
     childName,
@@ -242,37 +285,68 @@ async function renderVideo(call: Call): Promise<string> {
     id: COMPOSITION_ID,
     inputProps,
   });
+  log('COMPOSE', `✅ Composition selected: ${COMPOSITION_ID}`, {
+    width: composition.width,
+    height: composition.height,
+    fps: composition.fps,
+  });
 
-  // Render main video
-  console.log('🎥 Rendering...');
+  // Step 8: Render main video
+  log('RENDER', '🎥 Starting Remotion render...');
+  const renderStart = Date.now();
   const mainVideoPath = path.join(os.tmpdir(), `santa-main-${callId}.mp4`);
   const finalVideoPath = path.join(os.tmpdir(), `santa-video-${callId}.mp4`);
+  
+  log('RENDER', `Output path: ${mainVideoPath}`);
+  log('RENDER', `Total frames to render: ${totalDurationFrames}`);
 
+  let lastLoggedProgress = 0;
   await renderMedia({
     composition: { ...composition, durationInFrames: totalDurationFrames },
     serveUrl: bundleLocation,
     codec: 'h264',
     outputLocation: mainVideoPath,
     inputProps,
-    crf: 28, // Faster encoding
+    crf: 28,
     pixelFormat: 'yuv420p',
-    concurrency: 2, // Reduce memory pressure
-    timeoutInMilliseconds: 120000, // 2 minute timeout per frame
+    concurrency: 2,
+    timeoutInMilliseconds: 120000,
     onProgress: ({ progress }) => {
-      process.stdout.write(`\r   Progress: ${Math.round(progress * 100)}%`);
+      const percent = Math.round(progress * 100);
+      // Log every 10%
+      if (percent >= lastLoggedProgress + 10) {
+        lastLoggedProgress = Math.floor(percent / 10) * 10;
+        log('RENDER', `Progress: ${percent}%`);
+      }
+      process.stdout.write(`\r   Rendering: ${percent}%`);
     },
   });
 
-  // Add outro if exists
-  console.log('');
-  concatenateWithOutro(mainVideoPath, finalVideoPath);
+  const renderTime = ((Date.now() - renderStart) / 1000).toFixed(1);
+  const mainVideoStats = fs.statSync(mainVideoPath);
+  console.log(''); // New line after progress
+  log('RENDER', `✅ Main video rendered in ${renderTime}s`, {
+    size: `${(mainVideoStats.size / 1024 / 1024).toFixed(2)} MB`,
+  });
 
-  console.log('📤 Uploading...');
+  // Step 9: Add outro
+  log('OUTRO', 'Processing outro concatenation...');
+  concatenateWithOutro(mainVideoPath, finalVideoPath);
   
-  // Upload to Supabase
+  const finalVideoStats = fs.statSync(finalVideoPath);
+  log('OUTRO', `Final video size: ${(finalVideoStats.size / 1024 / 1024).toFixed(2)} MB`);
+
+  // Step 10: Upload to Supabase
+  log('UPLOAD', 'Reading final video file...');
   const videoBuffer = fs.readFileSync(finalVideoPath);
   const videoFileName = `${callId}.mp4`;
-
+  
+  log('UPLOAD', `Uploading ${videoFileName} to Supabase Storage...`, {
+    size: `${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`,
+    bucket: 'call-videos',
+  });
+  
+  const uploadStart = Date.now();
   const { error: uploadError } = await supabase.storage
     .from('call-videos')
     .upload(videoFileName, videoBuffer, {
@@ -281,15 +355,21 @@ async function renderVideo(call: Call): Promise<string> {
     });
 
   if (uploadError) {
+    log('UPLOAD', `❌ Upload failed: ${uploadError.message}`);
     throw new Error(`Upload failed: ${uploadError.message}`);
   }
 
-  // Get public URL
+  const uploadTime = ((Date.now() - uploadStart) / 1000).toFixed(1);
+  log('UPLOAD', `✅ Upload completed in ${uploadTime}s`);
+
+  // Step 11: Get public URL
   const { data: { publicUrl } } = supabase.storage
     .from('call-videos')
     .getPublicUrl(videoFileName);
+  log('UPLOAD', `Public URL: ${publicUrl}`);
 
-  // Update database
+  // Step 12: Update database
+  log('DB', 'Updating call record with video URL...');
   await supabase
     .from('calls')
     .update({
@@ -298,17 +378,19 @@ async function renderVideo(call: Call): Promise<string> {
       video_generated_at: new Date().toISOString(),
     })
     .eq('id', callId);
+  log('DB', '✅ Call record updated');
 
+  // Step 13: Log event
   await supabase.from('call_events').insert({
     call_id: callId,
     event_type: 'video_render_completed',
     event_data: { video_url: publicUrl },
   });
+  log('DB', '✅ Event logged');
 
-  // Send email now that video is ready
-  console.log('📧 Sending email...');
+  // Step 14: Send email
+  log('EMAIL', 'Preparing to send post-call email...');
   
-  // Re-fetch call with all fields for email
   const { data: fullCall } = await supabase
     .from('calls')
     .select('*')
@@ -318,7 +400,6 @@ async function renderVideo(call: Call): Promise<string> {
   if (fullCall && !fullCall.transcript_sent_at) {
     await sendPostCallEmail(fullCall as Call, publicUrl);
     
-    // Mark email as sent
     await supabase
       .from('calls')
       .update({ transcript_sent_at: new Date().toISOString() })
@@ -329,20 +410,39 @@ async function renderVideo(call: Call): Promise<string> {
       event_type: 'post_call_email_sent',
       event_data: { with_video: true },
     });
+    log('DB', '✅ Email sent flag updated');
+  } else {
+    log('EMAIL', 'Email already sent or call not found, skipping');
   }
 
-  // Cleanup temp files
+  // Step 15: Cleanup
+  log('CLEANUP', 'Removing temporary files...');
   try {
     fs.unlinkSync(tempAudioPath);
     fs.unlinkSync(mainVideoPath);
     fs.unlinkSync(finalVideoPath);
-  } catch {}
+    log('CLEANUP', '✅ Temp files removed');
+  } catch (err) {
+    log('CLEANUP', `Warning: Could not remove some temp files: ${err}`);
+  }
 
-  console.log(`✅ Done: ${publicUrl}`);
+  // Final summary
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log('═'.repeat(60));
+  log('DONE', `✅ Video render complete!`, {
+    callId,
+    childName,
+    totalTime: `${totalTime}s`,
+    videoUrl: publicUrl,
+  });
+  console.log('═'.repeat(60) + '\n');
+
   return publicUrl;
 }
 
 async function processCall(callId: string): Promise<void> {
+  log('FETCH', `Looking up call: ${callId}`);
+  
   const { data: call, error } = await supabase
     .from('calls')
     .select('id, child_name, recording_url, parent_email, transcript, call_duration_seconds, transcript_sent_at, recording_purchased')
@@ -353,6 +453,11 @@ async function processCall(callId: string): Promise<void> {
     throw new Error(`Call not found: ${callId}`);
   }
 
+  log('FETCH', `✅ Found call for: ${call.child_name}`, { 
+    hasRecording: !!call.recording_url,
+    hasEmail: !!call.parent_email,
+  });
+
   if (!call.recording_url) {
     throw new Error(`Call ${callId} has no recording`);
   }
@@ -361,7 +466,7 @@ async function processCall(callId: string): Promise<void> {
 }
 
 async function processPending(): Promise<void> {
-  console.log('🔍 Looking for pending video renders...');
+  log('QUEUE', 'Looking for pending video renders...');
 
   const { data: calls, error } = await supabase
     .from('calls')
@@ -371,22 +476,25 @@ async function processPending(): Promise<void> {
     .limit(10);
 
   if (error) {
-    console.error('Failed to fetch pending calls:', error);
+    log('QUEUE', `❌ Failed to fetch pending calls: ${error.message}`);
     return;
   }
 
   if (!calls || calls.length === 0) {
-    console.log('No pending video renders found.');
+    log('QUEUE', 'No pending video renders found');
     return;
   }
 
-  console.log(`Found ${calls.length} pending video(s)`);
+  log('QUEUE', `Found ${calls.length} pending video(s)`);
 
-  for (const call of calls) {
+  for (let i = 0; i < calls.length; i++) {
+    const call = calls[i];
+    log('QUEUE', `Processing ${i + 1}/${calls.length}: ${call.child_name}`);
+    
     try {
       await renderVideo(call as Call);
     } catch (err) {
-      console.error(`\n❌ Failed to render ${call.id}:`, err);
+      log('QUEUE', `❌ Failed to render ${call.id}: ${err}`);
       
       await supabase
         .from('calls')
@@ -397,23 +505,37 @@ async function processPending(): Promise<void> {
 }
 
 async function main() {
-  console.log('\n🎅 Santa Video Worker\n');
+  console.log('\n');
+  console.log('╔════════════════════════════════════════════════════════════╗');
+  console.log('║                  🎅 SANTA VIDEO WORKER 🎅                  ║');
+  console.log('╚════════════════════════════════════════════════════════════╝');
+  console.log('');
 
+  log('INIT', 'Starting worker...');
+  log('INIT', `Supabase URL: ${supabaseUrl?.substring(0, 40)}...`);
+  log('INIT', `Outro path: ${OUTRO_PATH}`);
+  log('INIT', `Outro exists: ${fs.existsSync(OUTRO_PATH)}`);
+  
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials in .env.local');
+    log('INIT', '❌ Missing Supabase credentials in .env.local');
     process.exit(1);
   }
 
   try {
     if (specificCallId) {
+      log('INIT', `Mode: Single call (${specificCallId})`);
       await processCall(specificCallId);
     } else {
+      log('INIT', 'Mode: Process pending queue');
       await processPending();
     }
     
-    console.log('\n✨ Worker finished\n');
+    console.log('');
+    log('EXIT', '✨ Worker finished successfully');
+    console.log('');
   } catch (err) {
-    console.error('\n❌ Worker error:', err);
+    console.log('');
+    log('EXIT', `❌ Worker error: ${err}`);
     process.exit(1);
   }
 }
