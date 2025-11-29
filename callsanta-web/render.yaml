@@ -1,0 +1,23 @@
+# Render.com deployment configuration
+# https://render.com/docs/yaml-spec
+
+services:
+  # Video rendering background worker
+  - type: worker
+    name: video-worker
+    runtime: docker
+    dockerfilePath: ./worker/Dockerfile
+    dockerContext: .
+    region: oregon # or your preferred region
+    plan: starter # Adjust based on needs (starter, standard, pro)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false # Set manually in Render dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
