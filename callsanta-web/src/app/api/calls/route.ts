@@ -5,6 +5,7 @@ import { createCheckoutSession, createPaymentIntent } from '@/lib/stripe';
 import { transcribeAudio } from '@/lib/transcription';
 import { v4 as uuid } from 'uuid';
 import { Call } from '@/types/database';
+import { getAffiliateIdFromCode } from '@/lib/affiliate/server';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_AUDIO_TYPES = [
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
     const purchaseRecording = validated.purchaseRecording ?? false;
     const callNow = validated.callNow ?? false;
     const utmSource = validated.utmSource ?? null;
+    const affiliateCode = validated.affiliateCode ?? null;
+
+    // Resolve affiliate code to affiliate ID
+    const affiliateId = affiliateCode ? await getAffiliateIdFromCode(affiliateCode) : null;
 
     // 3. Process voice file (if present)
     let voiceUrl: string | null = null;
@@ -156,6 +161,7 @@ export async function POST(request: NextRequest) {
         call_status: 'pending',
         call_now: callNow,
         utm_source: utmSource,
+        affiliate_id: affiliateId,
       })
       .select()
       .single();

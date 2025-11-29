@@ -1,14 +1,26 @@
-export type CallStatus = 
-  | 'pending' 
-  | 'scheduled' 
-  | 'queued' 
-  | 'in_progress' 
-  | 'completed' 
-  | 'failed' 
-  | 'cancelled' 
+export type CallStatus =
+  | 'pending'
+  | 'scheduled'
+  | 'queued'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
   | 'no_answer';
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+
+export interface Affiliate {
+  id: string;
+  slug: string;
+  public_code: string;
+  name: string;
+  email: string;
+  payout_percent: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Call {
   id: string;
@@ -51,6 +63,7 @@ export interface Call {
   video_status: 'pending' | 'processing' | 'completed' | 'failed' | null;
   retry_count: number;
   utm_source: string | null;
+  affiliate_id: string | null;
   created_at: string;
   updated_at: string;
 }

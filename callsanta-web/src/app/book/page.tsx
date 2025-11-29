@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Footer } from '@/components/layout';
 import { FaInstagram, FaTiktok, FaXTwitter, FaFacebook, FaYoutube, FaReddit } from 'react-icons/fa6';
 import type { IconType } from 'react-icons';
+import { useAffiliateAttribution } from '@/lib/hooks/useAffiliateAttribution';
 
 // Pricing in cents
 const PRICING = {
@@ -56,6 +57,7 @@ export default function BookPage() {
   const [showWizard, setShowWizard] = useState(false);
   const [utmSource, setUtmSource] = useState<string | null>(null);
   const wizardRef = useRef<HTMLDivElement | null>(null);
+  const affiliateCode = useAffiliateAttribution();
 
   // Check URL for ?book=true to auto-show wizard (from demo page) and capture utm_source
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function BookPage() {
         >
           {showWizard ? (
             <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <BookingWizard onSubmit={handleBookingSubmit} pricing={PRICING} utmSource={utmSource} />
+              <BookingWizard onSubmit={handleBookingSubmit} pricing={PRICING} utmSource={utmSource} affiliateCode={affiliateCode} />
             </div>
           ) : null}
         </div>

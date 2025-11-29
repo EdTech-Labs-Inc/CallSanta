@@ -12,6 +12,7 @@ export const bookingSchema = z.object({
   purchaseRecording: z.boolean().optional(),
   callNow: z.boolean().optional(),
   utmSource: z.string().nullable().optional(),
+  affiliateCode: z.string().nullable().optional(),
 });
 
 export type BookingFormData = z.infer<typeof bookingSchema>;
