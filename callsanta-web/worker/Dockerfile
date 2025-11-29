@@ -44,11 +44,8 @@ RUN npm ci --only=production
 # Copy application code
 COPY . .
 
-# Copy outro video if it exists
-COPY public/outro.mov public/outro.mov 2>/dev/null || true
-
-# Build TypeScript (if needed)
-# RUN npm run build
+# Note: outro.mov is optional - the worker handles missing outro gracefully
+# If you have an outro video, ensure it's in public/outro.mov before building
 
 # Set environment
 ENV NODE_ENV=production
