@@ -37,7 +37,7 @@ export default function DemoPage() {
    AS SEEN BAR COMPONENT - WHITE BACKGROUND
    ============================================ */
 const PLATFORMS: { name: string; icon: IconType; link?: string }[] = [
-  { name: 'Instagram', icon: FaInstagram, link: 'https://www.instagram.com/santasnumberdotcom' },
+  { name: 'Instagram', icon: FaInstagram, link: 'https://instagram.com/santasnumberonig' },
   { name: 'TikTok', icon: FaTiktok },
   { name: 'X', icon: FaXTwitter },
   { name: 'Facebook', icon: FaFacebook },
