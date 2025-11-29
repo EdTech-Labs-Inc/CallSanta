@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
 
-// Validation schema for creating an affiliate
+// Validation schema for creating an affiliate (public - no payout_percent)
 const createAffiliateSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
@@ -17,8 +17,10 @@ const createAffiliateSchema = z.object({
       message:
         'Slug must be lowercase alphanumeric with hyphens, starting and ending with alphanumeric',
     }),
-  payout_percent: z.number().min(0).max(100).optional().default(20),
 });
+
+// Default payout percentage for all affiliates
+const DEFAULT_PAYOUT_PERCENT = 20;
 
 /**
  * Generate a public code from the slug
@@ -33,15 +35,9 @@ function generatePublicCode(slug: string): string {
 
 /**
  * POST /api/affiliates
- * Create a new affiliate (admin only)
+ * Create a new affiliate (public - anyone can create)
  */
 export async function POST(request: NextRequest) {
-  // Verify admin API key
-  const apiKey = request.headers.get('x-api-key');
-  if (!ADMIN_API_KEY || apiKey !== ADMIN_API_KEY) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const body = await request.json();
     const validationResult = createAffiliateSchema.safeParse(body);
@@ -53,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, slug, payout_percent } = validationResult.data;
+    const { name, email, slug } = validationResult.data;
     const normalizedSlug = slug.toLowerCase();
 
     // Check if slug is reserved
@@ -103,7 +99,7 @@ export async function POST(request: NextRequest) {
         email,
         slug: normalizedSlug,
         public_code,
-        payout_percent,
+        payout_percent: DEFAULT_PAYOUT_PERCENT,
         is_active: true,
       })
       .select()

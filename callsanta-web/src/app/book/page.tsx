@@ -9,6 +9,9 @@ import { Footer } from '@/components/layout';
 import { FaInstagram, FaTiktok, FaXTwitter, FaFacebook, FaYoutube, FaReddit } from 'react-icons/fa6';
 import type { IconType } from 'react-icons';
 import { useAffiliateAttribution } from '@/lib/hooks/useAffiliateAttribution';
+import { getMyAffiliateFromStorage, StoredAffiliate } from '@/lib/affiliate/storage';
+import { AffiliateLinksPanel } from '@/components/AffiliateLinksPanel';
+import { X } from 'lucide-react';
 
 // Pricing in cents
 const PRICING = {
@@ -58,6 +61,16 @@ export default function BookPage() {
   const [utmSource, setUtmSource] = useState<string | null>(null);
   const wizardRef = useRef<HTMLDivElement | null>(null);
   const affiliateCode = useAffiliateAttribution();
+  const [myAffiliate, setMyAffiliate] = useState<StoredAffiliate | null>(null);
+  const [showAffiliatePanel, setShowAffiliatePanel] = useState(false);
+
+  // Check if user is an affiliate
+  useEffect(() => {
+    const stored = getMyAffiliateFromStorage();
+    if (stored) {
+      setMyAffiliate(stored);
+    }
+  }, []);
 
   // Check URL for ?book=true to auto-show wizard (from demo page) and capture utm_source
   useEffect(() => {
@@ -117,6 +130,45 @@ export default function BookPage() {
         <div className="fixed bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white/30 to-transparent pointer-events-none z-10" />
 
         <Footer />
+      </div>
+
+      {/* Affiliate Button - Fixed position */}
+      <div className="fixed bottom-20 right-4 z-50">
+        {myAffiliate ? (
+          <div className="relative">
+            <button
+              onClick={() => setShowAffiliatePanel(!showAffiliatePanel)}
+              className="bg-white text-[#c41e3a] px-4 py-2 rounded-full shadow-lg border border-[#d4a849] text-sm font-medium hover:shadow-xl transition-all flex items-center gap-2"
+            >
+              <span>📊</span>
+              <span className="hidden sm:inline">Your Links</span>
+            </button>
+
+            {/* Affiliate Panel Popover */}
+            {showAffiliatePanel && (
+              <div className="absolute bottom-12 right-0 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-medium text-gray-900">Your Affiliate Links</span>
+                  <button
+                    onClick={() => setShowAffiliatePanel(false)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+                <AffiliateLinksPanel affiliate={myAffiliate} showHeader={false} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <a
+            href="/affiliate/join"
+            className="bg-white text-[#c41e3a] px-4 py-2 rounded-full shadow-lg border border-[#d4a849] text-sm font-medium hover:shadow-xl transition-all flex items-center gap-2"
+          >
+            <span>💰</span>
+            <span className="hidden sm:inline">Become an Affiliate</span>
+          </a>
+        )}
       </div>
     </div>
   );

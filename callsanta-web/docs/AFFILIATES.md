@@ -1,101 +1,69 @@
-# Affiliate Program Management
+# Affiliate Program
 
-This document describes how to manage the affiliate/creator program for Santa's Number.
+This document describes the affiliate/creator program for Santa's Number.
 
 ## Overview
 
-The affiliate program allows creators to earn commission on bookings they refer. Each affiliate gets:
+The affiliate program allows anyone to earn commission on bookings they refer. Each affiliate gets:
 - A **friendly URL**: `santasnumber.com/{slug}` (e.g., `santasnumber.com/santa-mike`)
 - A **tracking code**: Used in `?aff={code}` parameter
-- **20% default commission** on paid bookings
+- **20% commission** on paid bookings
 
-## Configuration
+## For Creators: How to Join
+
+### Self-Serve Signup
+
+1. Visit **santasnumber.com/affiliate/join**
+2. Enter your name, email, and desired custom slug
+3. Click "Create My Affiliate Link"
+4. Copy and save your links!
+
+Your links are saved in your browser, so you can view them anytime by clicking the "Your Links" button on the booking page.
+
+### Your Two Links
+
+| Type | Example | Best For |
+|------|---------|----------|
+| Friendly URL | `santasnumber.com/santa-mike` | Social media bios, verbal sharing |
+| Tracking URL | `santasnumber.com/book?aff=SANTAMIKE` | Ads, email campaigns |
+
+Both links work the same way - when someone clicks and books within 30 days, you earn 20%.
+
+### Slug Requirements
+
+- 3-50 characters
+- Lowercase letters, numbers, and hyphens only
+- Must start and end with a letter or number
+- Cannot use reserved words (brand names, route names)
+
+---
+
+## For Admins: Management
+
+### Configuration
 
 | Setting | Value | Location |
 |---------|-------|----------|
 | Attribution window | 30 days | Cookie-based tracking |
-| Default payout | 20% | Configurable per affiliate |
+| Default payout | 20% | All affiliates |
 | Cookie name | `cs_aff` | Client-side storage |
 
-## Environment Setup
+### Environment Setup
 
-Add to your `.env.local`:
+Add to your `.env.local` for admin features:
 
 ```bash
 ADMIN_API_KEY=your-secure-admin-key-here
 ```
 
-## Creating an Affiliate
-
-Use the admin API to create affiliates:
+### Listing Affiliates (Admin Only)
 
 ```bash
-curl -X POST https://santasnumber.com/api/affiliates \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_ADMIN_API_KEY" \
-  -d '{
-    "name": "Creator Name",
-    "email": "creator@example.com",
-    "slug": "creator-name",
-    "payout_percent": 20
-  }'
-```
-
-### Slug Requirements
-
-- 3-50 characters
-- Lowercase alphanumeric and hyphens only
-- Must start and end with alphanumeric character
-- Cannot use reserved slugs (see below)
-
-### Response
-
-```json
-{
-  "affiliate": {
-    "id": "uuid-here",
-    "slug": "creator-name",
-    "public_code": "CREATNAME1234",
-    "name": "Creator Name",
-    "email": "creator@example.com",
-    "payout_percent": 20,
-    "is_active": true,
-    "created_at": "2024-12-01T00:00:00Z",
-    "updated_at": "2024-12-01T00:00:00Z"
-  },
-  "links": {
-    "direct": "https://santasnumber.com/creator-name",
-    "withCode": "https://santasnumber.com/book?aff=CREATNAME1234"
-  }
-}
-```
-
-## Affiliate Links
-
-Each affiliate gets two link formats:
-
-| Type | URL | Use Case |
-|------|-----|----------|
-| Friendly URL | `santasnumber.com/{slug}` | Social media bios, verbal sharing |
-| Direct URL | `santasnumber.com/book?aff={code}` | Ads, email campaigns with UTM tracking |
-
-Both links work the same way - they set an attribution cookie that lasts 30 days.
-
-## Listing Affiliates
-
-```bash
-# List all active affiliates
 curl https://santasnumber.com/api/affiliates \
   -H "x-api-key: YOUR_ADMIN_API_KEY"
-
-# Include inactive affiliates
-curl "https://santasnumber.com/api/affiliates?active=false" \
-  -H "x-api-key: YOUR_ADMIN_API_KEY"
 ```
 
-## Revenue Report
-
-Get affiliate performance metrics:
+### Revenue Report (Admin Only)
 
 ```bash
 # All-time report
@@ -130,40 +98,15 @@ curl "https://santasnumber.com/api/affiliates/report?start=2024-12-01&end=2024-1
     "total_paid_bookings": 45,
     "total_revenue_cents": 4455,
     "total_payout_due_cents": 891
-  },
-  "filters": {
-    "start_date": "2024-12-01",
-    "end_date": "2024-12-31"
   }
 }
 ```
 
 ### Calculating Payouts
 
-Payout amounts are in cents. To get dollars:
+Payout amounts are in cents: `891 cents = $8.91`
 
-```
-payout_due_dollars = payout_due_cents / 100
-```
-
-Example: `891 cents = $8.91`
-
-## Reserved Slugs
-
-The following slugs cannot be used for affiliates:
-
-**Existing Routes:**
-- `book`, `api`, `demo`, `legal`, `success`, `cancelled`, `recording`
-
-**Future Routes:**
-- `admin`, `affiliate`, `affiliates`, `dashboard`, `login`, `signup`
-
-**Brand Protection:**
-- `santasnumber`, `santas-number`, `santas_number`
-- `santacalls`, `santa-calls`, `santa_calls`
-
-**Technical:**
-- `lib`, `components`, `hooks`, `utils`, `types`, `constants`
+---
 
 ## How Attribution Works
 
@@ -178,6 +121,62 @@ The following slugs cannot be used for affiliates:
 
 If a user clicks multiple affiliate links, the **last click wins**. The cookie is overwritten with the most recent affiliate code.
 
+---
+
+## Reserved Slugs
+
+The following slugs cannot be used:
+
+- **Routes:** `book`, `api`, `demo`, `legal`, `success`, `cancelled`, `recording`, `admin`, `affiliate`
+- **Brand:** `santasnumber`, `santas-number`, `santacalls`, `santa-calls`
+- **Technical:** `lib`, `components`, `hooks`, `utils`, `types`, `constants`
+
+---
+
+## API Reference
+
+### Check Slug Availability
+
+```
+GET /api/affiliates/check-slug?slug=my-slug
+```
+
+Response:
+```json
+{ "available": true }
+// or
+{ "available": false, "reason": "This slug is already taken" }
+```
+
+### Create Affiliate (Public)
+
+```
+POST /api/affiliates
+Content-Type: application/json
+
+{
+  "name": "Creator Name",
+  "email": "creator@example.com",
+  "slug": "creator-name"
+}
+```
+
+### List Affiliates (Admin)
+
+```
+GET /api/affiliates
+x-api-key: YOUR_ADMIN_API_KEY
+```
+
+### Get Report (Admin)
+
+```
+GET /api/affiliates/report?start=2024-12-01&end=2024-12-31
+x-api-key: YOUR_ADMIN_API_KEY
+```
+
+---
+
 ## Database Schema
 
 ### affiliates table
@@ -189,28 +188,30 @@ If a user clicks multiple affiliate links, the **last click wins**. The cookie i
 | public_code | VARCHAR(20) | Tracking code |
 | name | VARCHAR(100) | Display name |
 | email | VARCHAR(255) | Contact email |
-| payout_percent | DECIMAL(5,2) | Commission percentage |
-| is_active | BOOLEAN | Whether affiliate can receive new attributions |
+| payout_percent | DECIMAL(5,2) | Commission percentage (default 20) |
+| is_active | BOOLEAN | Whether affiliate can receive attributions |
 | created_at | TIMESTAMPTZ | Creation timestamp |
 | updated_at | TIMESTAMPTZ | Last update timestamp |
 
-### calls table (additions)
+### calls table (affiliate tracking)
 
 | Column | Type | Description |
 |--------|------|-------------|
 | affiliate_id | UUID | Foreign key to affiliates.id (nullable) |
+
+---
 
 ## Troubleshooting
 
 ### Affiliate not getting credit
 
 1. Check if the affiliate's `is_active` is `true`
-2. Verify the attribution cookie is set (check browser dev tools)
+2. Verify the attribution cookie is set (check browser dev tools for `cs_aff`)
 3. Ensure booking was completed within 30-day attribution window
 
-### Slug already taken error
+### Slug already taken
 
-Slugs must be unique. Use a different slug or check if an inactive affiliate already has it.
+Slugs must be unique. Try a different slug variation.
 
 ### Report shows zero revenue
 
