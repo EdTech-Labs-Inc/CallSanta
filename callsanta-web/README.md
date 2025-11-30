@@ -1,30 +1,59 @@
-# CallSanta
+# CallSanta Documentation
 
-A web application that lets parents book personalized phone calls from Santa Claus to their children, powered by AI voice technology.
+Welcome to the CallSanta documentation. This guide covers everything you need to know to understand, run, and develop the CallSanta application.
 
-## Features
+## What is CallSanta?
 
-- **Personalized Santa Calls** - AI-powered conversations using child's name, age, and interests
-- **Flexible Scheduling** - Book calls in advance or request immediate calls
-- **Call Recording** - Optional recording with shareable video generation
-- **Affiliate Program** - Built-in referral system with tracking
-- **Email Notifications** - Confirmations, reminders, and post-call summaries
+CallSanta is a web application that enables parents to book personalized phone calls from Santa Claus to their children. The system combines AI conversational capabilities, automated call scheduling, video generation, and payment processing into a complete e-commerce experience.
 
-## Tech Stack
+### Key Features
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 16, React 19, Tailwind CSS 4 |
-| Database | Supabase (PostgreSQL) |
-| Payments | Stripe |
-| AI Voice | ElevenLabs + Twilio |
-| Video | Remotion + AWS Lambda |
-| Email | Resend |
-| Hosting | Vercel |
+- **Book Personalized Santa Calls** - Parents provide child details, schedule a time, and Santa calls
+- **AI Voice Conversations** - Powered by ElevenLabs for natural, context-aware conversations
+- **Automatic Scheduling** - Calls are initiated at the scheduled time via cron jobs
+- **Call Recording & Video Generation** - Optional recording purchase generates shareable video clips
+- **Affiliate Program** - Promotional program with tracking and commissions
+- **Email Notifications** - Booking confirmations, reminders, and post-call summaries
+
+## Documentation Index
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](./GETTING_STARTED.md) | Local development setup and running the project |
+| [Architecture](./ARCHITECTURE.md) | System architecture, data flow, and service interactions |
+| [API Reference](./API_REFERENCE.md) | Complete API endpoints documentation |
+| [Environment Variables](./ENVIRONMENT_VARIABLES.md) | All required environment variables |
+| [Database Schema](./DATABASE_SCHEMA.md) | Database tables and relationships |
+| [Affiliates](./AFFILIATES.md) | Affiliate program documentation |
+
+## Tech Stack Overview
+
+### Frontend
+- **Next.js 16** with App Router
+- **React 19** with React Compiler
+- **Tailwind CSS 4** for styling
+- **React Hook Form + Zod** for form validation
+
+### Backend
+- **Next.js API Routes** for serverless functions
+- **Supabase** for PostgreSQL database and file storage
+- **Stripe** for payment processing
+- **ElevenLabs** for AI voice conversations (via Twilio)
+- **Remotion + AWS Lambda** for video generation
+- **Resend** for transactional emails
+
+### Infrastructure
+- **Vercel** for hosting and cron jobs
+- **AWS Lambda** for video rendering
+- **Supabase Storage** for file storage
 
 ## Quick Start
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd callsanta-web
+
 # Install dependencies
 npm install
 
@@ -32,56 +61,74 @@ npm install
 cp .env.local.example .env.local
 # Edit .env.local with your API keys
 
-# Run development server
+# Run the development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+Visit [http://localhost:3000](http://localhost:3000) to see the application.
 
 ## Project Structure
 
 ```
-src/
-├── app/                 # Next.js pages & API routes
-│   ├── api/            # Backend endpoints
-│   │   ├── calls/      # Call management
-│   │   ├── webhooks/   # Stripe, ElevenLabs, Remotion
-│   │   └── cron/       # Scheduled jobs
-│   ├── book/           # Booking wizard
-│   └── recording/      # Video playback
-├── components/         # React components
-├── lib/               # Services & utilities
-└── remotion/          # Video composition
+callsanta-web/
+├── src/
+│   ├── app/                    # Next.js App Router pages & API routes
+│   │   ├── api/               # Backend API endpoints
+│   │   │   ├── calls/         # Call CRUD operations
+│   │   │   ├── affiliates/    # Affiliate management
+│   │   │   ├── cron/          # Scheduled jobs
+│   │   │   ├── video/         # Video rendering
+│   │   │   └── webhooks/      # Third-party webhooks
+│   │   ├── book/              # Booking page
+│   │   ├── success/           # Post-payment success
+│   │   ├── recording/         # Recording playback
+│   │   └── affiliate/         # Affiliate pages
+│   ├── components/            # React components
+│   │   ├── forms/             # Form components
+│   │   ├── layout/            # Layout components
+│   │   └── ui/                # Reusable UI primitives
+│   ├── lib/                   # Utility functions & services
+│   │   ├── email/             # Email service (Resend)
+│   │   ├── video/             # Video rendering (Remotion)
+│   │   ├── affiliate/         # Affiliate tracking
+│   │   ├── supabase/          # Database clients
+│   │   └── *.ts               # Individual service integrations
+│   ├── remotion/              # Video composition components
+│   └── types/                 # TypeScript type definitions
+├── public/                    # Static assets
+├── supabase/                  # Database migrations
+├── worker/                    # Background worker process
+├── scripts/                   # Utility scripts
+└── docs/                      # Documentation (you are here)
 ```
 
-## Scripts
+## Core User Flow
+
+1. **Booking** - Parent visits `/book` and fills out the booking wizard
+2. **Payment** - Stripe processes the payment
+3. **Scheduling** - Call is scheduled or initiated immediately
+4. **Call Execution** - Cron job triggers ElevenLabs to make the call
+5. **Recording** - If purchased, audio is processed into a shareable video
+6. **Delivery** - Email sent with transcript and/or video link
+
+## Available Scripts
 
 ```bash
-npm run dev              # Development server
-npm run build            # Production build
-npm run remotion:studio  # Video composition editor
-npm run worker:dev       # Background worker
+npm run dev              # Start development server
+npm run build            # Build for production
+npm run start            # Start production server
+npm run lint             # Run ESLint
+
+# Remotion (Video)
+npm run remotion:preview # Preview video composition
+npm run remotion:studio  # Interactive video studio
+npm run remotion:render  # Render test video locally
+
+# Worker
+npm run worker:dev       # Run background worker in dev mode
+npm run worker:start     # Run background worker
 ```
 
-## Documentation
+## Support
 
-See the [docs/](./docs/) folder for detailed documentation:
-
-- [Getting Started](./docs/GETTING_STARTED.md) - Local setup guide
-- [Architecture](./docs/ARCHITECTURE.md) - System design & data flow
-- [API Reference](./docs/API_REFERENCE.md) - Endpoint documentation
-- [Environment Variables](./docs/ENVIRONMENT_VARIABLES.md) - Configuration
-- [Database Schema](./docs/DATABASE_SCHEMA.md) - Tables & storage
-
-## How It Works
-
-1. Parent fills out booking form with child details
-2. Payment processed via Stripe
-3. At scheduled time, cron job triggers ElevenLabs
-4. Santa AI calls the phone number and has a personalized conversation
-5. If recording purchased, audio is rendered into shareable video
-6. Email sent with transcript and/or video link
-
-## License
-
-Private - All rights reserved.
+For questions or issues, please refer to the relevant documentation sections or open an issue in the repository.
