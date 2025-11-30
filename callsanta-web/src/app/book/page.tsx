@@ -206,9 +206,9 @@ function HeartIcon() {
    ============================================ */
 const PLATFORMS: { name: string; icon: IconType; link?: string }[] = [
   { name: 'Instagram', icon: FaInstagram, link: 'https://instagram.com/santasnumberonig' },
-  { name: 'TikTok', icon: FaTiktok },
+  { name: 'TikTok', icon: FaTiktok, link: 'https://www.tiktok.com/@santasnumber?_r=1&_t=ZN-91oX7xmJOA2' },
   { name: 'X', icon: FaXTwitter },
-  { name: 'Facebook', icon: FaFacebook },
+  { name: 'Facebook', icon: FaFacebook, link: 'https://www.facebook.com/share/16nhKvceHA/?mibextid=wwXIfr' },
   { name: 'YouTube', icon: FaYoutube },
   { name: 'Reddit', icon: FaReddit },
 ];
