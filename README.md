@@ -1,10 +1,10 @@
-# CallSanta Documentation
+# SantasNumber Documentation
 
-Welcome to the CallSanta documentation. This guide covers everything you need to know to understand, run, and develop the CallSanta application.
+Welcome to the SantasNumber documentation. This guide covers everything you need to know to understand, run, and develop the SantasNumber application.
 
-## What is CallSanta?
+## What is SantasNumber?
 
-CallSanta is a web application that enables parents to book personalized phone calls from Santa Claus to their children. The system combines AI conversational capabilities, automated call scheduling, video generation, and payment processing into a complete e-commerce experience.
+SantasNumber is a web application that enables parents to book personalized phone calls from Santa Claus to their children. The system combines AI conversational capabilities, automated call scheduling, video generation, and payment processing into a complete e-commerce experience.
 
 ### Key Features
 
@@ -52,7 +52,7 @@ CallSanta is a web application that enables parents to book personalized phone c
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd callsanta-web
+cd SantasNumber-web
 
 # Install dependencies
 npm install
@@ -70,7 +70,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the application.
 ## Project Structure
 
 ```
-callsanta-web/
+SantasNumber-web/
 ├── src/
 │   ├── app/                    # Next.js App Router pages & API routes
 │   │   ├── api/               # Backend API endpoints
