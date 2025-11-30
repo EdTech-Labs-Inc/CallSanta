@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { CallStatus, Call } from '@/types/database';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { sendPostCallEmail } from '@/lib/email';
-import { queueVideoRender } from '@/lib/video';
+import { triggerLambdaRender } from '@/lib/video/lambda';
 
 /**
  * Verify HMAC signature from ElevenLabs webhook
@@ -282,27 +282,29 @@ async function handleAudioWebhook(data: {
 
   console.log(`Audio saved for call ${call.id}: ${publicUrl}`);
 
-  // Queue video rendering for all calls with recordings
-  // This creates a shareable social media video
+  // Trigger video rendering on Remotion Lambda
+  // This creates a shareable social media video in ~30-60 seconds
   try {
-    await queueVideoRender({
+    const lambdaResult = await triggerLambdaRender({
       callId: call.id,
       audioUrl: publicUrl,
       childName: call.child_name,
+      parentEmail: call.parent_email,
     });
-    console.log(`Video render queued for call ${call.id}`);
 
-    await supabaseAdmin.from('call_events').insert({
-      call_id: call.id,
-      event_type: 'video_render_queued',
-      event_data: { audio_url: publicUrl },
-    });
+    if (lambdaResult.success) {
+      console.log(`[Webhook] Lambda render triggered for call ${call.id}`, {
+        renderId: lambdaResult.renderId,
+      });
+    } else {
+      console.error(`[Webhook] Lambda render failed for call ${call.id}:`, lambdaResult.error);
+    }
   } catch (videoError) {
-    console.error(`Failed to queue video render for call ${call.id}:`, videoError);
+    console.error(`[Webhook] Failed to trigger Lambda render for call ${call.id}:`, videoError);
     // Don't fail the webhook if video render fails
   }
 
-  // NOTE: Email is now sent by the video worker AFTER video is rendered
+  // NOTE: Email is now sent by the Remotion webhook AFTER video is rendered
   // This ensures users get the email with the video link included
   // For calls without recording purchased, email is sent in handleTranscriptionWebhook
   console.log(`[Webhook] Email will be sent after video is rendered for call ${call.id}`);

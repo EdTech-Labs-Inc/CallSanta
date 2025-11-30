@@ -1,7 +1,9 @@
-export { 
-  queueVideoRender, 
+export {
+  queueVideoRender,
   getPendingVideoRenders,
   markVideoComplete,
   markVideoFailed,
-  renderSantaVideo 
+  renderSantaVideo
 } from './render';
+
+export { triggerLambdaRender } from './lambda';

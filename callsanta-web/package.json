@@ -19,6 +19,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@remotion/bundler": "^4.0.379",
     "@remotion/cli": "^4.0.379",
+    "@remotion/lambda": "^4.0.379",
     "@remotion/media-utils": "^4.0.379",
     "@remotion/renderer": "^4.0.379",
     "@stripe/react-stripe-js": "^2.8.0",
