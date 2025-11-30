@@ -209,7 +209,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
                     1
                   </span>
                   <span>
-                    At the scheduled time, Santa will call this number. Please answer and give the phone to your child — or enjoy a fun surprise if you’re calling a friend!
+                    Answer the phone at the scheduled time and hand it to your child!
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
@@ -217,7 +217,7 @@ export default async function SuccessPage({ searchParams }: PageProps) {
                     2
                   </span>
                   <span>
-                    Santa will talk to the person who answers and ask about wishes, gifts, and holiday plans.
+                    Santa will chat about wishes, gifts, and holiday plans.
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
@@ -225,16 +225,16 @@ export default async function SuccessPage({ searchParams }: PageProps) {
                     3
                   </span>
                   <span>
-                    After the call, we will send you a christmas wishlist email with an optional download link to the recording (available for 48 hours before deletion).
+                    We'll email you a wishlist summary and recording link (available 48 hours).
                   </span>
                 </li>
               </ol>
 
               <p className="text-sm text-gray-800 font-medium mt-6">
-                📞 Missed the call? No worries! Email questions@santasnumber.com and we’ll help reschedule within 24 hours.
+                📞 Missed the call? Email questions@santasnumber.com to reschedule.
               </p>
               <p className="text-xs text-gray-500 mt-4">
-                🔐 Curious about how we handle your data? Email questions@santasnumber.com and we’ll be happy to explain.
+                🔐 Questions about data? Email questions@santasnumber.com
               </p>
             </div>
 
